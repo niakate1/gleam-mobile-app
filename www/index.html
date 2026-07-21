@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Gleam ✨</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--p:#7C3AED;--p2:#6D28D9;--light:#F5F3FF;--gray:#6B7280;--border:#E5E7EB;--red:#EF4444;--green:#059669}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F9FAFB;color:#111827;min-height:100vh}
+.screen{display:none;min-height:100vh;flex-direction:column}
+.screen.active{display:flex}
+.auth-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#7C3AED,#4F46E5)}
+.auth-box{background:#fff;border-radius:20px;padding:36px 32px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.logo{text-align:center;margin-bottom:28px}
+.logo h1{font-size:32px;font-weight:800;color:var(--p)}
+.logo p{color:var(--gray);font-size:14px;margin-top:4px}
+.tabs{display:flex;background:#F3F4F6;border-radius:10px;padding:4px;margin-bottom:24px;gap:4px}
+.tab{flex:1;padding:9px;border:none;background:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:var(--gray)}
+.tab.active{background:#fff;color:var(--p);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:5px;margin-top:14px}
+input,select,textarea{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;outline:none;transition:.2s;background:#fff;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(124,58,237,.1)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.role-select{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.role-btn{padding:12px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600;color:#374151}
+.role-btn.sel{border-color:var(--p);background:var(--light);color:var(--p)}
+.role-btn span{display:block;font-size:22px;margin-bottom:4px}
+.btn{width:100%;padding:13px;background:var(--p);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:20px}
+.btn:hover{background:var(--p2)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.err{background:#FEF2F2;color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;margin-top:12px;display:none}
+.err.show{display:block}
+.navbar{background:#fff;border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.navbar .logo-sm{font-size:22px;font-weight:800;color:var(--p);cursor:pointer}
+.user-badge{background:var(--light);color:var(--p);padding:6px 12px;border-radius:20px;font-size:13px;font-weight:600}
+.pro-badge{background:#D1FAE5;color:var(--green);padding:6px 12px;border-radius:20px;font-size:13px;font-weight:600}
+.back-btn{background:none;border:none;font-size:20px;cursor:pointer;color:#374151}
+.bottom-nav{background:#fff;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);position:sticky;bottom:0;padding-bottom:env(safe-area-inset-bottom)}
+.bnav-item{display:flex;flex-direction:column;align-items:center;padding:10px 0;cursor:pointer;border:none;background:none;color:var(--gray);font-size:11px;font-weight:600;gap:3px;position:relative}
+.bnav-item.active{color:var(--p)}
+.bnav-item span:first-child{font-size:22px}
+.nav-badge{position:absolute;top:4px;left:50%;margin-left:6px;width:9px;height:9px;background:var(--red);border-radius:50%;border:2px solid #fff}
+.home-content,.pro-content,.profile-content{flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch}
+.greeting h2{font-size:22px;font-weight:800;margin-bottom:4px}
+.greeting p{color:var(--gray);font-size:14px;margin-bottom:18px}
+.section-title{font-size:16px;font-weight:700;margin-bottom:12px;color:#111827}
+.services-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.svc-card{background:#fff;border-radius:14px;padding:14px 8px;text-align:center;cursor:pointer;border:2px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.05);position:relative}
+.svc-card:hover{border-color:var(--p)}
+.svc-card.selected{border-color:var(--p);background:var(--light)}
+.svc-card.selected::after{content:'✓';position:absolute;top:6px;right:6px;width:18px;height:18px;background:var(--p);color:#fff;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
+.svc-card span:first-child{font-size:28px;display:block;margin-bottom:6px}
+.svc-card .svc-name{font-size:11px;font-weight:700;color:#374151}
+.demand-row{background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;gap:12px;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer}
+.demand-row:hover{border-color:var(--p)}
+.demand-icon{font-size:28px}
+.demand-info{flex:1;min-width:0}
+.demand-type{font-weight:700;font-size:14px;text-transform:capitalize}
+.demand-addr{font-size:12px;color:var(--gray);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.demand-status{font-size:11px;font-weight:600;margin-top:4px}
+.s-attente{color:#D97706}.s-devis{color:var(--p)}.s-acceptee{color:var(--green)}.s-terminee{color:var(--gray)}
+.demand-date{font-size:11px;color:var(--gray);flex-shrink:0}
+.pro-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:14px;padding:16px;border:1px solid var(--border);text-align:center}
+.stat-card .stat-num{font-size:28px;font-weight:800;color:var(--p)}
+.stat-card .stat-label{font-size:12px;color:var(--gray);margin-top:4px}
+.dispo-toggle{background:#fff;border-radius:14px;padding:16px;border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.dispo-toggle .dispo-text{font-size:14px;font-weight:700}
+.dispo-toggle .dispo-sub{font-size:12px;color:var(--gray);margin-top:2px}
+.toggle-switch{width:48px;height:26px;background:#E5E7EB;border-radius:13px;cursor:pointer;position:relative;border:none}
+.toggle-switch.on{background:var(--green)}
+.toggle-switch::after{content:'';position:absolute;width:20px;height:20px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle-switch.on::after{left:25px}
+.demande-card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.dc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.dc-type{font-size:16px;font-weight:800;text-transform:capitalize;display:flex;align-items:center;gap:8px}
+.dc-num{font-size:11px;color:var(--gray);background:#F3F4F6;padding:3px 8px;border-radius:10px}
+.dc-info{font-size:13px;color:#374151;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.devis-form{background:#F9FAFB;border-radius:10px;padding:14px;margin-top:12px;border:1px solid var(--border)}
+.devis-form label{font-size:12px;font-weight:600;color:#374151;margin-bottom:4px;margin-top:10px;display:block}
+.devis-form label:first-child{margin-top:0}
+.btn-devis{width:100%;padding:11px;background:var(--p);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px}
+.btn-devis:disabled{background:var(--gray);cursor:not-allowed}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:24px 20px calc(32px + env(safe-area-inset-bottom))}
+.modal-handle{width:40px;height:4px;background:#E5E7EB;border-radius:2px;margin:0 auto 20px}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:6px}
+.modal-sub{font-size:13px;color:var(--gray);margin-bottom:20px}
+.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.opt-btn{padding:12px 10px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600;color:#374151}
+.opt-btn.sel{border-color:var(--p);background:var(--light);color:var(--p)}
+.opt-btn span{display:block;font-size:20px;margin-bottom:4px}
+.opt-btn.full{grid-column:1/-1}
+.field-group{margin-bottom:14px}
+.field-group label{font-size:13px;font-weight:600;color:#374151;margin-bottom:5px;display:block}
+.optional{font-weight:400;color:var(--gray);font-size:11px}
+.photo-zone{border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer}
+.photo-zone:hover{border-color:var(--p);background:var(--light)}
+.photo-previews{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.photo-preview{position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer}
+.photo-preview img{width:100%;height:100%;object-fit:cover}
+.photo-preview .del-photo{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer}
+.datetime-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.flex-opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.flex-opt{padding:6px 12px;border:1.5px solid var(--border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:#374151}
+.flex-opt.sel{border-color:var(--p);background:var(--light);color:var(--p)}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.modal-send-btn{width:100%;padding:14px;background:var(--p);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+.modal-send-btn:disabled{opacity:.6;cursor:not-allowed}
+.devis-list{flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch}
+.devis-card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.devis-badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-pending{background:#FEF3C7;color:#D97706}
+.badge-accepted{background:#D1FAE5;color:var(--green)}
+.badge-refused{background:#FEE2E2;color:var(--red)}
+.btn-accept{flex:1;padding:10px;background:var(--p);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-accept:disabled{opacity:.6;cursor:not-allowed}
+.btn-refuse{flex:1;padding:10px;background:#fff;color:var(--red);border:2px solid var(--red);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-refuse:disabled{opacity:.6;cursor:not-allowed}
+.conv-row{background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;gap:12px;align-items:center;cursor:pointer}
+.conv-row:hover{border-color:var(--p)}
+.conv-avatar{width:44px;height:44px;border-radius:50%;background:var(--light);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.conv-body{flex:1;min-width:0}
+.conv-name{font-weight:700;font-size:14px}
+.conv-preview{color:var(--gray);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.conv-time{font-size:11px;color:var(--gray);flex-shrink:0}
+.chat-screen{flex:1;display:flex;flex-direction:column;min-height:0}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.chat-bubble{max-width:75%;padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.4;word-wrap:break-word}
+.chat-bubble.mine{align-self:flex-end;background:var(--p);color:#fff;border-bottom-right-radius:4px}
+.chat-bubble.theirs{align-self:flex-start;background:#fff;border:1px solid var(--border);border-bottom-left-radius:4px}
+.chat-input-bar{background:#fff;border-top:1px solid var(--border);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;align-items:center}
+.chat-input-bar input{flex:1;padding:10px 14px;border-radius:20px;font-size:16px}
+.chat-send-btn{background:var(--p);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:16px;flex-shrink:0}
+.chat-send-btn:disabled{opacity:.6;cursor:not-allowed}
+.empty-state{text-align:center;padding:60px 20px;color:var(--gray)}
+.empty-state span{font-size:48px;display:block;margin-bottom:12px}
+.empty-state p{font-size:15px}
+.profile-hero{background:linear-gradient(135deg,var(--p),#4F46E5);border-radius:16px;padding:24px;color:#fff;margin-bottom:16px;text-align:center}
+.profile-hero .avatar{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px}
+.profile-hero h3{font-size:20px;font-weight:800}
+.profile-menu{background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+.profile-item{display:flex;align-items:center;padding:14px 16px;cursor:pointer;border-bottom:1px solid var(--border);gap:12px}
+.profile-item:last-child{border-bottom:none}
+.profile-item:hover{background:#F9FAFB}
+.profile-item .pi-icon{font-size:20px;width:32px;text-align:center}
+.profile-item .pi-text{flex:1;font-size:14px;font-weight:600}
+.profile-item .pi-arrow{color:var(--gray)}
+.logout-btn{width:100%;margin-top:12px;padding:13px;background:#FEF2F2;color:var(--red);border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer}
+.success-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center}
+.success-icon{width:80px;height:80px;background:var(--light);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 20px}
+.detail-card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;border:1px solid var(--border)}
+.detail-presta{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)}
+.detail-presta:last-child{border-bottom:none}
+.detail-presta-icon{font-size:24px}
+.detail-presta-name{font-weight:700;font-size:14px;text-transform:capitalize}
+.detail-presta-info{font-size:12px;color:var(--gray);margin-top:2px}
+.detail-actions{display:flex;gap:10px;margin-top:16px}
+.btn-modify{flex:1;padding:12px;background:var(--light);color:var(--p);border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.btn-delete{flex:1;padding:12px;background:#FEF2F2;color:var(--red);border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.locked-banner{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;border-radius:10px;padding:12px;font-size:13px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+.toast{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:#1F2937;color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:500;opacity:0;transition:.3s;pointer-events:none;max-width:90%;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.upload-progress{font-size:12px;color:var(--gray);margin-top:6px;display:none}
+.upload-progress.show{display:block}
+.conv-dot{width:8px;height:8px;background:var(--red);border-radius:50%;flex-shrink:0;margin-left:6px}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<!-- AUTH -->
+<div class="screen active" id="s-auth">
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div class="logo"><h1>✨ Gleam</h1><p>Le nettoyage, brillamment simple</p></div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('login')">Connexion</button>
+        <button class="tab" onclick="switchTab('register')">Inscription</button>
+      </div>
+      <div id="form-login">
+        <label>Email</label><input type="email" id="le" placeholder="votre@email.com" autocomplete="username" autocapitalize="off" spellcheck="false">
+        <label>Mot de passe</label><input type="password" id="lp" placeholder="••••••••" autocomplete="current-password">
+        <div style="text-align:right;margin-top:6px"><button style="background:none;border:none;color:var(--p);font-size:13px;cursor:pointer;font-weight:600" onclick="forgotPassword()">Mot de passe oublié ?</button></div>
+        <button class="btn" id="login-btn" onclick="doLogin()">Se connecter</button>
+        <div class="err" id="lerr"></div>
+      </div>
+      <div id="form-register" style="display:none">
+        <div class="row2">
+          <div><label>Prénom</label><input type="text" id="rfn" placeholder="Jean" autocomplete="given-name"></div>
+          <div><label>Nom</label><input type="text" id="rln" placeholder="Dupont" autocomplete="family-name"></div>
+        </div>
+        <label>Email</label><input type="email" id="re" placeholder="votre@email.com" autocomplete="username" autocapitalize="off" spellcheck="false">
+        <label>Téléphone</label><input type="tel" id="rp" placeholder="06 00 00 00 00" autocomplete="tel">
+        <label>Mot de passe</label><input type="password" id="rpw" placeholder="Minimum 8 caractères" autocomplete="new-password">
+        <label>Vous êtes</label>
+        <div class="role-select">
+          <button class="role-btn sel" id="role-client" onclick="setRole('client')"><span>👤</span>Particulier</button>
+          <button class="role-btn" id="role-pro" onclick="setRole('pro')"><span>🏢</span>Professionnel</button>
+        </div>
+        <div id="pro-rcpro-block" style="display:none;background:#F9FAFB;border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:14px">
+          <label style="margin-top:0">Assurance RC Pro <span class="optional">(requis pour les professionnels)</span></label>
+          <div style="font-size:12px;color:var(--gray);margin-bottom:10px">Une assurance responsabilité civile professionnelle en cours de validité est nécessaire pour intervenir chez les clients Gleam.</div>
+          <label style="font-size:12px;margin-top:0">Compagnie d'assurance <span class="optional">(optionnel)</span></label>
+          <input type="text" id="r-assurance-compagnie" placeholder="Ex: MAIF, AXA...">
+          <label style="font-size:12px">Numéro de police <span class="optional">(optionnel)</span></label>
+          <input type="text" id="r-assurance-police" placeholder="Ex: 123456789">
+          <label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;cursor:pointer;font-weight:400;font-size:13px">
+            <input type="checkbox" id="r-assurance-atteste" style="width:auto;margin-top:2px">
+            <span>J'atteste disposer d'une assurance responsabilité civile professionnelle en cours de validité, couvrant les dommages pouvant survenir dans le cadre de mes prestations.</span>
+          </label>
+        </div>
+        <button class="btn" id="register-btn" onclick="doRegister()">Créer mon compte Gleam</button>
+        <div class="err" id="rerr"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOME CLIENT -->
+<div class="screen" id="s-home">
+  <div class="navbar"><span class="logo-sm">✨ Gleam</span><span class="user-badge" id="user-name-badge">Bonjour</span></div>
+  <div class="home-content">
+    <div class="greeting"><h2 id="greeting-name">Bonjour 👋</h2><p>Que souhaitez-vous faire briller aujourd'hui ?</p></div>
+    <div class="section-title">Choisissez une ou plusieurs prestations</div>
+    <div class="services-grid" id="services-grid">
+      <div class="svc-card" data-svc="voiture" onclick="toggleSvc(this,'voiture')"><span>🚗</span><div class="svc-name">Voiture</div></div>
+      <div class="svc-card" data-svc="canape" onclick="toggleSvc(this,'canape')"><span>🛋️</span><div class="svc-name">Canapé</div></div>
+      <div class="svc-card" data-svc="matelas" onclick="toggleSvc(this,'matelas')"><span>🛏️</span><div class="svc-name">Matelas</div></div>
+      <div class="svc-card" data-svc="terrasse" onclick="toggleSvc(this,'terrasse')"><span>☀️</span><div class="svc-name">Terrasse</div></div>
+      <div class="svc-card" data-svc="piscine" onclick="toggleSvc(this,'piscine')"><span>💧</span><div class="svc-name">Piscine</div></div>
+      <div class="svc-card" data-svc="toiture" onclick="toggleSvc(this,'toiture')"><span>🏠</span><div class="svc-name">Toiture</div></div>
+      <div class="svc-card" data-svc="vitres" onclick="toggleSvc(this,'vitres')"><span>🪟</span><div class="svc-name">Vitres</div></div>
+      <div class="svc-card" data-svc="autre" onclick="toggleSvc(this,'autre')"><span>➕</span><div class="svc-name">Autre</div></div>
+    </div>
+    <button class="modal-send-btn" id="continue-svc-btn" style="display:none;margin-bottom:24px" onclick="startMultiServiceFlow()">Continuer (<span id="svc-count">0</span> sélectionnée(s))</button>
+    <div class="section-title">Mes dernières demandes</div>
+    <div id="recent-demands"><div class="empty-state"><span>📋</span><p>Aucune demande pour l'instant.</p></div></div>
+  </div>
+  <div class="bottom-nav">
+    <button class="bnav-item active" onclick="goTab('home')"><span>🏠</span>Accueil</button>
+    <button class="bnav-item" onclick="goTab('messages')"><span>💬</span>Messages<span class="nav-badge nav-badge-client" style="display:none"></span></button>
+    <button class="bnav-item" onclick="goTab('devis')"><span>📋</span>Devis</button>
+    <button class="bnav-item" onclick="goTab('profile')"><span>👤</span>Profil</button>
+  </div>
+</div>
+
+<!-- HOME PRO -->
+<div class="screen" id="s-pro-home">
+  <div class="navbar"><span class="logo-sm">✨ Gleam Pro</span><span class="pro-badge" id="pro-name-badge">Pro</span></div>
+  <div class="pro-content">
+    <div class="greeting"><h2 id="pro-greeting">Bonjour 👋</h2><p>Voici les demandes disponibles</p></div>
+    <div class="pro-stats">
+      <div class="stat-card"><div class="stat-num" id="stat-demandes">0</div><div class="stat-label">Demandes disponibles</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-devis">0</div><div class="stat-label">Devis envoyés</div></div>
+    </div>
+    <div class="dispo-toggle">
+      <div><div class="dispo-text">Disponibilité</div><div class="dispo-sub" id="dispo-sub">Vous êtes disponible</div></div>
+      <button class="toggle-switch on" id="dispo-toggle" onclick="toggleDispo()"></button>
+    </div>
+    <div class="section-title">📋 Demandes clients</div>
+    <div id="pro-demandes-list"><div class="empty-state"><span>📋</span><p>Chargement...</p></div></div>
+  </div>
+  <div class="bottom-nav">
+    <button class="bnav-item active" onclick="goProTab('pro-home')"><span>🏠</span>Accueil</button>
+    <button class="bnav-item" onclick="goProTab('pro-messages')"><span>💬</span>Messages<span class="nav-badge nav-badge-pro" style="display:none"></span></button>
+    <button class="bnav-item" onclick="goProTab('pro-devis')"><span>💰</span>Mes devis</button>
+    <button class="bnav-item" onclick="goProTab('pro-profile')"><span>👤</span>Profil</button>
+  </div>
+</div>
+
+<!-- PRO MESSAGES -->
+<div class="screen" id="s-pro-messages">
+  <div class="navbar"><span class="logo-sm">💬 Messages</span></div>
+  <div id="pro-conv-list" style="flex:1;overflow-y:auto;padding:16px"><div class="empty-state"><span>💬</span><p>Aucun message pour l'instant.</p></div></div>
+  <div class="bottom-nav">
+    <button class="bnav-item" onclick="goProTab('pro-home')"><span>🏠</span>Accueil</button>
+    <button class="bnav-item active" onclick="goProTab('pro-messages')"><span>💬</span>Messages<span class="nav-badge nav-badge-pro" style="display:none"></span></button>
+    <button class="bnav-item" onclick="goProTab('pro-devis')"><span>💰</span>Mes devis</button>
+    <button class="bnav-item" onclick="goProTab('pro-profile')"><span>👤</span>Profil</button>
+  </div>
+</div>
+
+<!-- PRO DEVIS -->
+<div class="screen" id="s-pro-devis">
+  <div class="navbar"><span class="logo-sm">💰 Mes devis envoyés</span></div>
+  <div class="devis-list" id="pro-devis-list"><div class="empty-state"><span>💰</span><p>Aucun devis envoyé.</p></div></div>
+  <div class="bottom-nav">
+    <button class="bnav-item" onclick="goProTab('pro-home')"><span>🏠</span>Accueil</button>
+    <button class="bnav-item" onclick="goProTab('pro-messages')"><span>💬</span>Messages<span class="nav-badge nav-badge-pro" style="display:none"></span></button>
+    <button class="bnav-item active" onclick="goProTab('pro-devis')"><span>💰</span>Mes devis</button>
+    <button class="bnav-item" onclick="goProTab('pro-profile')"><span>👤</span>Profil</button>
+  </div>
+</div>
+
+<!-- PRO PROFILE -->
+<div class="screen" id="s-pro-profile">
+  <div class="navbar"><span class="logo-sm">👤 Mon Profil Pro</span></div>
+  <div class="profile-content">
+    <div class="profile-hero"><div class="avatar">🏢</div><h3 id="pro-profile-name">Professionnel</h3><p id="pro-profile-email">email@exemple.com</p></div>
+    <div class="profile-menu">
+      <div class="profile-item"><span class="pi-icon">💰</span><span class="pi-text">Mes gains</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item" onclick="goProTab('pro-tarifs')"><span class="pi-icon">💶</span><span class="pi-text">Mes tarifs</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item"><span class="pi-icon">⭐</span><span class="pi-text">Mes avis</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item"><span class="pi-icon">🔔</span><span class="pi-text">Notifications</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item" onclick="window.open('aide.html','_blank')"><span class="pi-icon">❓</span><span class="pi-text">Aide</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item" onclick="window.open('mentions-legales.html','_blank')"><span class="pi-icon">📄</span><span class="pi-text">Mentions légales & CGU</span><span class="pi-arrow">›</span></div>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">Se déconnecter</button>
+  </div>
+  <div class="bottom-nav">
+    <button class="bnav-item" onclick="goProTab('pro-home')"><span>🏠</span>Accueil</button>
+    <button class="bnav-item" onclick="goProTab('pro-messages')"><span>💬</span>Messages<span class="nav-badge nav-badge-pro" style="display:none"></span></button>
+    <button class="bnav-item" onclick="goProTab('pro-devis')"><span>💰</span>Mes devis</button>
+    <button class="bnav-item active" onclick="goProTab('pro-profile')"><span>👤</span>Profil</button>
+  </div>
+</div>
+
+<!-- PRO TARIFS (Vague 2) -->
+<div class="screen" id="s-pro-tarifs">
+  <div class="navbar">
+    <button class="back-btn" onclick="goProTab('pro-profile')">←</button>
+    <span class="logo-sm" style="font-size:16px">💶 Mes tarifs</span>
+    <span style="width:24px"></span>
+  </div>
+  <div class="home-content">
+    <div class="locked-banner" style="background:var(--light);border-color:#DDD6FE;color:#5B21B6">
+      <span>💡</span>
+      <div>Fixez un tarif de base par prestation. Les clients verront une estimation de prix calculée à partir de ces tarifs (et de ceux des autres pros) avant même de recevoir un devis. Laissez un champ vide si vous ne proposez pas cette prestation — un tarif par défaut sera utilisé pour l'estimation en attendant.</div>
+    </div>
+    <div id="pro-tarifs-form"></div>
+    <button class="modal-send-btn" id="save-tarifs-btn" onclick="saveTarifs()" style="margin-top:8px">💾 Enregistrer mes tarifs</button>
+  </div>
+</div>
+
+<!-- MESSAGES CLIENT -->
+<div class="screen" id="s-messages">
+  <div class="navbar"><span class="logo-sm">💬 Messages</span></div>
+  <div id="client-conv-list" style="flex:1;overflow-y:auto;padding:16px"><div class="empty-state"><span>💬</span><p>Aucun message pour l'instant.</p></div></div>
+  <div class="bottom-nav">
+    <button class="bnav-item" onclick="goTab('home')"><span>🏠</span>Accueil</button>
+    <button class="bnav-item active" onclick="goTab('messages')"><span>💬</span>Messages<span class="nav-badge nav-badge-client" style="display:none"></span></button>
+    <button class="bnav-item" onclick="goTab('devis')"><span>📋</span>Devis</button>
+    <button class="bnav-item" onclick="goTab('profile')"><span>👤</span>Profil</button>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div class="screen" id="s-chat">
+  <div class="navbar">
+    <button class="back-btn" onclick="backFromChat()">←</button>
+    <span class="logo-sm" id="chat-title" style="font-size:16px">Conversation</span>
+    <span style="width:24px"></span>
+  </div>
+  <div class="chat-screen">
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-bar">
+      <input type="text" id="chat-input" placeholder="Écrivez votre message..." onkeypress="if(event.key==='Enter')sendChatMsg()">
+      <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMsg()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- DEVIS CLIENT -->
+<div class="screen" id="s-devis">
+  <div class="navbar"><span class="logo-sm">📋 Mes Devis</span></div>
+  <div class="devis-list" id="devis-list"><div class="empty-state"><span>📋</span><p>Aucun devis reçu.</p></div></div>
+  <div class="bottom-nav">
+    <button class="bnav-item" onclick="goTab('home')"><span>🏠</span>Accueil</button>
+    <button class="bnav-item" onclick="goTab('messages')"><span>💬</span>Messages<span class="nav-badge nav-badge-client" style="display:none"></span></button>
+    <button class="bnav-item active" onclick="goTab('devis')"><span>📋</span>Devis</button>
+    <button class="bnav-item" onclick="goTab('profile')"><span>👤</span>Profil</button>
+  </div>
+</div>
+
+<!-- PROFIL CLIENT -->
+<div class="screen" id="s-profile">
+  <div class="navbar"><span class="logo-sm">👤 Mon Profil</span></div>
+  <div class="profile-content">
+    <div class="profile-hero"><div class="avatar">👤</div><h3 id="profile-name">Utilisateur</h3><p id="profile-email">email@exemple.com</p></div>
+    <div class="profile-menu">
+      <div class="profile-item"><span class="pi-icon">📋</span><span class="pi-text">Mes demandes</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item"><span class="pi-icon">⭐</span><span class="pi-text">Mes avis</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item"><span class="pi-icon">💳</span><span class="pi-text">Paiements</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item"><span class="pi-icon">🔔</span><span class="pi-text">Notifications</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item"><span class="pi-icon">🔒</span><span class="pi-text">Sécurité</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item" onclick="window.open('aide.html','_blank')"><span class="pi-icon">❓</span><span class="pi-text">Aide</span><span class="pi-arrow">›</span></div>
+      <div class="profile-item" onclick="window.open('mentions-legales.html','_blank')"><span class="pi-icon">📄</span><span class="pi-text">Mentions légales & CGU</span><span class="pi-arrow">›</span></div>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">Se déconnecter</button>
+  </div>
+  <div class="bottom-nav">
+    <button class="bnav-item" onclick="goTab('home')"><span>🏠</span>Accueil</button>
+    <button class="bnav-item" onclick="goTab('messages')"><span>💬</span>Messages<span class="nav-badge nav-badge-client" style="display:none"></span></button>
+    <button class="bnav-item" onclick="goTab('devis')"><span>📋</span>Devis</button>
+    <button class="bnav-item active" onclick="goTab('profile')"><span>👤</span>Profil</button>
+  </div>
+</div>
+
+<!-- DETAIL DEMANDE -->
+<div class="screen" id="s-detail">
+  <div class="navbar">
+    <button class="back-btn" onclick="goTab('home')">←</button>
+    <span class="logo-sm" style="font-size:16px">Détail de la demande</span>
+    <span style="width:24px"></span>
+  </div>
+  <div class="home-content" id="detail-content"></div>
+</div>
+
+<!-- SUCCESS -->
+<div class="screen" id="s-success">
+  <div class="navbar"><span class="logo-sm">✨ Gleam</span></div>
+  <div class="success-screen">
+    <div class="success-icon">✨</div>
+    <h2>Demande envoyée !</h2>
+    <p>Votre demande a été transmise aux prestataires Gleam.<br>Vous recevrez des devis dans les plus brefs délais.</p>
+    <button class="btn" onclick="goTab('home')" style="max-width:300px">Retour à l'accueil</button>
+    <button class="btn" style="background:#fff;color:var(--p);border:2px solid var(--p);margin-top:10px;max-width:300px" onclick="goTab('devis')">Voir mes devis</button>
+  </div>
+</div>
+
+<!-- MODAL SERVICE -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal"><div style="display:flex;justify-content:center;position:relative"><div class="modal-handle"></div><button onclick="closeModalForce()" style="position:absolute;right:0;top:-4px;background:none;border:none;font-size:22px;color:var(--gray);cursor:pointer;padding:4px 8px;line-height:1">✕</button></div><div id="modal-body"></div></div>
+</div>
+
+<!-- MODAL PAIEMENT -->
+<div class="modal-overlay" id="payment-overlay">
+  <div class="modal" style="max-height:80vh">
+    <div class="modal-handle"></div>
+    <div class="modal-title">💳 Paiement sécurisé</div>
+    <div class="modal-sub" id="payment-sub">Montant : --</div>
+    <div id="payment-error" class="err"></div>
+    <div id="card-element" style="border:1.5px solid var(--border);border-radius:10px;padding:14px;margin:16px 0;background:#fff"></div>
+    <button class="modal-send-btn" id="payment-btn" onclick="confirmPayment()">🔒 Payer maintenant</button>
+    <button onclick="closePayment()" style="width:100%;padding:12px;background:none;border:none;color:var(--gray);font-size:14px;cursor:pointer;margin-top:8px">Annuler</button>
+  </div>
+</div>
+
+<input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="handlePhotos(this)">
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+const API='https://gleam-production-9b95.up.railway.app';
+let currentUser=null,userRole='client',photos=[],disponible=true,currentChatDemandeId=null,chatPollInterval=null;
+let selectedServices=[],multiFlow={active:false,queue:[],current:0,results:[]};
+let stripeInstance=null,cardElement=null,currentPaymentIntent=null,currentDevisId=null;
+let isSubmittingPhotos=false;
+
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function toast(msg,dur=3000){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._hideTimer);t._hideTimer=setTimeout(()=>t.classList.remove('show'),dur)}
+function showErr(id,msg){const e=document.getElementById(id);e.textContent=msg;e.classList.add('show')}
+function hideErr(id){document.getElementById(id).classList.remove('show')}
+function setRole(r){userRole=r;document.getElementById('role-client').classList.toggle('sel',r==='client');document.getElementById('role-pro').classList.toggle('sel',r==='pro');var b=document.getElementById('pro-rcpro-block');if(b)b.style.display=(r==='pro')?'block':'none'}
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',(t==='login'&&i===0)||(t==='register'&&i===1)));
+  document.getElementById('form-login').style.display=t==='login'?'block':'none';
+  document.getElementById('form-register').style.display=t==='register'?'block':'none';
+}
+function isPro(){const t=(currentUser&&currentUser.type||'').toLowerCase().trim();return t==='pro'||t==='societe'||t==='professionnel'}
+function authHeaders(){const t=localStorage.getItem('gleam_token');return{'Content-Type':'application/json','Authorization':'Bearer '+t}}
+function escapeHtml(s){if(s===null||s===undefined)return'';var d=document.createElement('div');d.textContent=String(s);return d.innerHTML}
+function escAttr(s){var str=String(s===null||s===undefined?'':s);return str.split('\\').join('\\\\').split("'").join("\\'");}
+
+// Lecture sûre d'une réponse fetch : gère les cas où le corps n'est pas du JSON valide
+// (ex: erreur 413 "payload too large", erreur 502 Railway, page HTML d'erreur, etc.)
+async function safeJson(r){
+  try{return await r.json()}
+  catch(e){
+    if(r.status===413)return{error:'Le fichier envoyé est trop volumineux. Réessayez avec moins de photos ou des photos plus légères.'};
+    if(r.status===0)return{error:'Impossible de contacter le serveur. Vérifiez votre connexion internet.'};
+    return{error:'Erreur serveur (code '+r.status+'). Réessayez dans un instant.'};
+  }
+}
+function friendlyNetworkError(e){
+  if(e&&e.name==='TypeError')return'Connexion impossible. Vérifiez votre connexion internet et réessayez.';
+  return'Erreur réseau. Réessayez dans un instant.';
+}
+
+function goTab(tab){
+  stopChatPoll();
+  const map={home:'s-home',messages:'s-messages',devis:'s-devis',profile:'s-profile'};
+  show(map[tab]);
+  const idx={home:0,messages:1,devis:2,profile:3}[tab];
+  document.querySelectorAll('#'+map[tab]+' .bnav-item').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  if(tab==='home')loadDemandes();
+  if(tab==='devis')loadDevis();
+  if(tab==='messages')loadConversationsClient();
+}
+function goProTab(tab){
+  stopChatPoll();
+  const map={'pro-home':'s-pro-home','pro-messages':'s-pro-messages','pro-devis':'s-pro-devis','pro-profile':'s-pro-profile','pro-tarifs':'s-pro-tarifs'};
+  show(map[tab]);
+  const idx={'pro-home':0,'pro-messages':1,'pro-devis':2,'pro-profile':3}[tab];
+  if(idx!==undefined)document.querySelectorAll('#'+map[tab]+' .bnav-item').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  if(tab==='pro-home')loadProDemandes();
+  if(tab==='pro-devis')loadProDevis();
+  if(tab==='pro-messages')loadConversationsPro();
+  if(tab==='pro-tarifs')loadProTarifs();
+}
+
+// ── AUTH ──
+async function forgotPassword(){
+  const email=document.getElementById('le').value.trim();
+  if(!email){toast('Entrez votre email d\'abord.');return}
+  try{
+    const r=await fetch(API+'/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const d=await safeJson(r);
+    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    toast('📧 Email de réinitialisation envoyé !',5000);
+  }catch(e){toast(friendlyNetworkError(e))}
+}
+
+async function doLogin(){
+  hideErr('lerr');
+  const email=document.getElementById('le').value.trim(),pw=document.getElementById('lp').value;
+  if(!email||!pw)return showErr('lerr','Remplissez tous les champs.');
+  const btn=document.getElementById('login-btn');btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  try{
+    const r=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+    const d=await safeJson(r);
+    if(!r.ok){showErr('lerr',d.error||'Identifiants incorrects.');return}
+    currentUser=d.user;localStorage.setItem('gleam_token',d.token);
+    enterApp();
+  }catch(e){showErr('lerr',friendlyNetworkError(e))}
+  finally{btn.disabled=false;btn.textContent='Se connecter'}
+}
+
+async function doRegister(){
+  hideErr('rerr');
+  const fn=document.getElementById('rfn').value.trim(),ln=document.getElementById('rln').value.trim(),
+        email=document.getElementById('re').value.trim(),phone=document.getElementById('rp').value.trim(),pw=document.getElementById('rpw').value;
+  if(!fn)return showErr('rerr','Prénom requis.');
+  if(!ln)return showErr('rerr','Nom requis.');
+  if(!email)return showErr('rerr','Email requis.');
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return showErr('rerr','Format d\'email invalide.');
+  if(!phone)return showErr('rerr','Téléphone requis.');
+  if(!pw||pw.length<8)return showErr('rerr','Mot de passe min 8 caractères.');
+  var assuranceCompagnie='',assurancePolice='',assuranceAtteste=false;
+  if(userRole==='pro'){
+    assuranceAtteste=document.getElementById('r-assurance-atteste').checked;
+    if(!assuranceAtteste)return showErr('rerr','L\'attestation d\'assurance RC Pro est requise pour créer un compte professionnel.');
+    assuranceCompagnie=document.getElementById('r-assurance-compagnie').value.trim();
+    assurancePolice=document.getElementById('r-assurance-police').value.trim();
+  }
+  const btn=document.getElementById('register-btn');btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  try{
+    const r=await fetch(API+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({firstName:fn,lastName:ln,prenom:fn,nom:ln,email,phone,telephone:phone,password:pw,role:userRole,type:userRole,
+        assurance_rc_pro:assuranceAtteste,assurance_compagnie:assuranceCompagnie,assurance_police:assurancePolice})});
+    const d=await safeJson(r);
+    if(!r.ok){showErr('rerr',d.error||'Erreur inscription.');return}
+    currentUser=d.user;localStorage.setItem('gleam_token',d.token);
+    enterApp();
+  }catch(e){showErr('rerr',friendlyNetworkError(e))}
+  finally{btn.disabled=false;btn.textContent='Créer mon compte Gleam'}
+}
+
+function enterApp(){
+  const name=(currentUser&&(currentUser.firstName||currentUser.prenom||currentUser.email))||'';
+  if(isPro()){
+    document.getElementById('pro-greeting').textContent='Bonjour '+name+' 👋';
+    document.getElementById('pro-name-badge').textContent=name;
+    document.getElementById('pro-profile-name').textContent=((currentUser&&(currentUser.firstName||currentUser.prenom))||'')+' '+((currentUser&&(currentUser.lastName||currentUser.nom))||'');
+    document.getElementById('pro-profile-email').textContent=(currentUser&&currentUser.email)||'';
+    disponible=!currentUser||currentUser.disponible!==false;
+    document.getElementById('dispo-toggle').classList.toggle('on',disponible);
+    document.getElementById('dispo-sub').textContent=disponible?'Vous êtes disponible':'Vous êtes indisponible';
+    show('s-pro-home');
+    loadProDemandes();
+  }else{
+    document.getElementById('greeting-name').textContent='Bonjour '+name+' 👋';
+    document.getElementById('user-name-badge').textContent=name;
+    document.getElementById('profile-name').textContent=((currentUser&&(currentUser.firstName||currentUser.prenom))||'')+' '+((currentUser&&(currentUser.lastName||currentUser.nom))||'');
+    document.getElementById('profile-email').textContent=(currentUser&&currentUser.email)||'';
+    show('s-home');
+    loadDemandes();
+  }
+  toast('Bienvenue sur Gleam ✨');
+  startUnreadPoll();
+}
+function doLogout(){stopChatPoll();stopUnreadPoll();localStorage.removeItem('gleam_token');currentUser=null;location.reload()}
+
+// ── HELPERS ──
+const ICONS={voiture:'🚗',canape:'🛋️',matelas:'🛏️',terrasse:'☀️',piscine:'💧',toiture:'🏠',vitres:'🪟',autre:'➕'};
+const STATUTS={en_attente:['⏳ En attente','s-attente'],devis_recus:['📋 Devis reçus','s-devis'],acceptee:['✅ Acceptée','s-acceptee'],en_cours:['🔧 En cours','s-acceptee'],terminee:['🏁 Terminée','s-terminee']};
+
+function tryParseNotes(notes){
+  try{
+    const n=JSON.parse(notes);
+    if(n.prestations&&Array.isArray(n.prestations)){
+      return n.prestations.map(function(p){
+        var det=p.details&&Object.keys(p.details).length?Object.values(p.details).map(escapeHtml).join(' • '):'';
+        return '<div style="margin-bottom:6px"><strong style="text-transform:capitalize">'+(ICONS[p.type]||'✨')+' '+escapeHtml(p.type)+'</strong>'+(det?' — '+det:'')+(p.description?'<br>'+escapeHtml(p.description):'')+'</div>';
+      }).join('');
+    }
+    return escapeHtml(n.description||'');
+  }catch(e){return escapeHtml(notes||'')}
+}
+
+function getPhotosFromNotes(notes){
+  try{const n=JSON.parse(notes);return(n.photos&&Array.isArray(n.photos))?n.photos:[]}catch(e){return[]}
+}
+
+function renderPhotoPreviews(photosList,containerId){
+  var c=document.getElementById(containerId);
+  if(!c)return;
+  c.innerHTML='';
+  photosList.forEach(function(src){
+    var div=document.createElement('div');
+    div.className='photo-preview';
+    div.onclick=function(){window.open(src,'_blank')};
+    var img=document.createElement('img');
+    img.src=src;
+    div.appendChild(img);
+    c.appendChild(div);
+  });
+}
+
+// Redimensionne et compresse une image côté client avant envoi (évite les erreurs
+// "payload too large" quand un client envoie une photo prise directement au téléphone,
+// qui peut peser plusieurs Mo — surtout critique sur mobile).
+function compressImage(file,maxDim,quality){
+  return new Promise(function(resolve,reject){
+    var reader=new FileReader();
+    reader.onerror=function(){reject(new Error('Lecture du fichier impossible.'))};
+    reader.onload=function(e){
+      var img=new Image();
+      img.onerror=function(){reject(new Error('Image invalide.'))};
+      img.onload=function(){
+        var w=img.width,h=img.height;
+        if(w>h&&w>maxDim){h=Math.round(h*(maxDim/w));w=maxDim}
+        else if(h>=w&&h>maxDim){w=Math.round(w*(maxDim/h));h=maxDim}
+        var canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        var ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        try{resolve(canvas.toDataURL('image/jpeg',quality))}
+        catch(err){reject(err)}
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatCreneau(creneau){
+  if(!creneau)return'';
+  var match=creneau.match(/(\d{4})-(\d{2})-(\d{2})\s*à\s*(.+)/);
+  if(!match)return escapeHtml(creneau);
+  var y=match[1],m=match[2],d=match[3],time=match[4];
+  var date=new Date(parseInt(y),parseInt(m)-1,parseInt(d));
+  var jours=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+  var mois=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  return jours[date.getDay()]+' '+parseInt(d)+' '+mois[parseInt(m)-1]+' '+y+' à '+escapeHtml(time);
+}
+
+function localDateISO(d){
+  var yr=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,'0'),da=String(d.getDate()).padStart(2,'0');
+  return yr+'-'+mo+'-'+da;
+}
+
+// ── CLIENT DEMANDES ──
+async function loadDemandes(){
+  try{
+    const r=await fetch(API+'/api/demandes',{headers:authHeaders()});
+    if(r.status===401){return doLogout()}
+    if(!r.ok)return;
+    const data=await safeJson(r);
+    const c=document.getElementById('recent-demands');
+    if(!data||!data.length){c.innerHTML='<div class="empty-state"><span>📋</span><p>Aucune demande pour l\u2019instant.</p></div>';return}
+
+    var order={en_cours:0,acceptee:1,devis_recus:2,en_attente:3,terminee:4};
+    data.sort(function(a,b){return(order[a.statut]||9)-(order[b.statut]||9)});
+
+    var html='';
+    data.forEach(function(d){
+      var st=STATUTS[d.statut]||['',''];
+      var icon=ICONS[(d.prestation||'').split(' + ')[0]]||'✨';
+      var urgentStyle=d.statut==='en_cours'?'border-color:var(--green);background:#F0FDF4;':'';
+      var urgentBadge=d.statut==='en_cours'?'<span style="font-size:10px;background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;margin-left:6px">ACTION REQUISE</span>':'';
+      html+='<div class="demand-row" style="'+urgentStyle+'" onclick="openDetail(\''+escAttr(d.id)+'\')">'+
+        '<span class="demand-icon">'+icon+'</span>'+
+        '<div class="demand-info">'+
+          '<div class="demand-type">'+escapeHtml(d.prestation)+urgentBadge+'</div>'+
+          '<div class="demand-addr">'+escapeHtml(d.adresse)+'</div>'+
+          '<div class="demand-status '+st[1]+'">'+st[0]+'</div>'+
+        '</div>'+
+        '<div class="demand-date">'+new Date(d.created_at).toLocaleDateString('fr-FR')+'</div>'+
+      '</div>';
+    });
+    c.innerHTML=html;
+  }catch(e){console.error('loadDemandes',e)}
+}
+
+async function loadDevis(){
+  try{
+    const rd=await fetch(API+'/api/demandes',{headers:authHeaders()});
+    if(rd.status===401){return doLogout()}
+    if(!rd.ok)return;
+    const demandes=await safeJson(rd);
+    const c=document.getElementById('devis-list');
+    const avecDevis=demandes.filter(function(d){return d.statut==='devis_recus'||d.statut==='acceptee'||d.statut==='en_cours'||d.statut==='terminee'});
+    if(!avecDevis.length){c.innerHTML='<div class="empty-state"><span>📋</span><p>Aucun devis reçu pour l\u2019instant.</p></div>';return}
+    var all=[];
+    for(var i=0;i<avecDevis.length;i++){
+      try{
+        const r=await fetch(API+'/api/devis/demande/'+avecDevis[i].id,{headers:authHeaders()});
+        if(r.ok){const dv=await safeJson(r);dv.forEach(function(v){all.push(Object.assign({},v,{prestation:avecDevis[i].prestation,demande_statut:avecDevis[i].statut}))})}
+      }catch(e){}
+    }
+    if(!all.length){c.innerHTML='<div class="empty-state"><span>📋</span><p>Aucun devis reçu pour l\u2019instant.</p></div>';return}
+
+    // Tri logique explicite (indépendant du statut de la demande associée à d'autres devis) :
+    // En cours > Terminé (à noter) > Accepté-paiement requis > En attente > Refusé > Annulé par le pro
+    function clientDevisScore(v){
+      if(v.statut==='accepte'&&v.demande_statut==='en_cours')return 0;
+      if(v.statut==='accepte'&&v.demande_statut==='terminee')return 1;
+      if(v.statut==='accepte')return 2;
+      if(v.statut==='envoye')return 3;
+      if(v.statut==='refuse')return 4;
+      return 5; // annule_pro
+    }
+    all.sort(function(a,b){
+      var diff=clientDevisScore(a)-clientDevisScore(b);
+      if(diff!==0)return diff;
+      return new Date(b.created_at||0)-new Date(a.created_at||0);
+    });
+
+    var html='';
+    all.forEach(function(v){
+      var proNameRaw=v.pro?((v.pro.prenom||'')+' '+(v.pro.nom||'')).trim():'Prestataire Gleam';
+      var proName=escapeHtml(proNameRaw);
+      var proNote=v.pro&&v.pro.note_moyenne?'⭐ '+escapeHtml(v.pro.note_moyenne):'';
+      var badge,actions='';
+      var cardStyle='';
+      var safeDemandeId=escAttr(v.demande_id),safeVId=escAttr(v.id),safeSocieteId=escAttr(v.societe_id),safeProName=escAttr(proNameRaw);
+
+      if(v.statut==='accepte'&&v.demande_statut==='en_cours'){
+        badge='<span class="devis-badge badge-accepted">🔧 En cours</span>';
+        cardStyle='border-color:var(--green);background:#F0FDF4;';
+        actions='<div style="margin-top:12px;display:flex;gap:8px">'+
+          '<button class="btn-accept" onclick="goToChat(\''+safeDemandeId+'\',\''+safeProName+'\')">💬 Discuter</button>'+
+          '<button class="btn-accept" style="background:var(--green)" onclick="libererPaiement(\''+safeDemandeId+'\')">✅ Confirmer la prestation</button>'+
+        '</div>';
+      }else if(v.statut==='accepte'&&v.demande_statut==='terminee'){
+        badge='<span class="devis-badge badge-accepted">🏁 Terminé</span>';
+        cardStyle='opacity:0.7;';
+        actions='<div style="margin-top:12px">'+
+          '<button class="btn-accept" style="background:#6B7280" onclick="ouvrirNote(\''+safeDemandeId+'\',\''+safeSocieteId+'\',\''+safeProName+'\')">⭐ Noter le prestataire</button>'+
+        '</div>';
+      }else if(v.statut==='accepte'){
+        badge='<span class="devis-badge badge-accepted">✅ Accepté — Paiement requis</span>';
+        cardStyle='border-color:#D97706;background:#FFFBEB;';
+        actions='<div style="margin-top:12px;display:flex;gap:8px">'+
+          '<button class="btn-accept" onclick="goToChat(\''+safeDemandeId+'\',\''+safeProName+'\')">💬 Discuter</button>'+
+          '<button class="btn-accept" style="background:#059669" onclick="openPayment(\''+safeVId+'\','+Number(v.prix_ttc)+')">💳 Payer '+escapeHtml(v.prix_ttc)+'\u20ac</button>'+
+        '</div>';
+      }else if(v.statut==='refuse'){
+        badge='<span class="devis-badge badge-refused">❌ Refusé</span>';
+        cardStyle='opacity:0.6;';
+      }else if(v.statut==='annule_pro'){
+        badge='<span class="devis-badge badge-refused">🚫 Annulé par le pro</span>';
+        cardStyle='opacity:0.6;';
+      }else{
+        badge='<span class="devis-badge badge-pending">⏳ En attente</span>';
+        actions='<div style="display:flex;gap:8px;margin-top:12px">'+
+          '<button class="btn-accept" onclick="accepterDevis(\''+safeVId+'\',this)">✅ Accepter</button>'+
+          '<button class="btn-refuse" onclick="refuserDevis(\''+safeVId+'\',this)">❌ Refuser</button>'+
+        '</div>';
+      }
+
+      html+='<div class="devis-card" style="'+cardStyle+'">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'+
+          '<div><div style="font-weight:700;font-size:15px">'+proName+'</div>'+
+          (proNote?'<div style="font-size:12px;color:#D97706;margin-top:2px">'+proNote+'</div>':'')+
+          '</div>'+badge+
+        '</div>'+
+        '<div style="font-size:13px;color:var(--gray);text-transform:capitalize">🔧 '+escapeHtml(v.prestation)+'</div>'+
+        '<div style="font-size:26px;font-weight:800;color:var(--p);margin:8px 0">'+escapeHtml(v.prix_ttc)+' \u20ac</div>'+
+        (v.description?'<div style="font-size:13px;color:#374151">'+escapeHtml(v.description)+'</div>':'')+
+        actions+
+      '</div>';
+    });
+    c.innerHTML=html;
+  }catch(e){console.error('loadDevis',e)}
+}
+
+async function accepterDevis(devisId,btn){
+  if(!confirm('Accepter ce devis ? Les autres devis seront automatiquement refusés.'))return;
+  if(btn){btn.disabled=true;var sib=btn.parentElement&&btn.parentElement.querySelector('.btn-refuse');if(sib)sib.disabled=true}
+  try{
+    const r=await fetch(API+'/api/devis/'+devisId+'/accepter',{method:'POST',headers:authHeaders()});
+    const d=await safeJson(r);
+    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn){btn.disabled=false;var sib2=btn.parentElement&&btn.parentElement.querySelector('.btn-refuse');if(sib2)sib2.disabled=false}return}
+    toast('✅ Devis accepté !');loadDevis();loadDemandes();
+  }catch(e){toast(friendlyNetworkError(e));if(btn)btn.disabled=false}
+}
+async function refuserDevis(devisId,btn){
+  if(btn){btn.disabled=true;var sib=btn.parentElement&&btn.parentElement.querySelector('.btn-accept');if(sib)sib.disabled=true}
+  try{
+    const r=await fetch(API+'/api/devis/'+devisId+'/refuser',{method:'POST',headers:authHeaders()});
+    if(!r.ok){const d=await safeJson(r);toast('Erreur : '+(d.error||''));if(btn){btn.disabled=false;var sib2=btn.parentElement&&btn.parentElement.querySelector('.btn-accept');if(sib2)sib2.disabled=false}return}
+    toast('❌ Devis refusé.');loadDevis();
+  }catch(e){toast(friendlyNetworkError(e));if(btn)btn.disabled=false}
+}
+
+// ── DETAIL DEMANDE ──
+var currentDetailDemande=null;
+async function openDetail(demandeId){
+  try{
+    const r=await fetch(API+'/api/demandes/'+demandeId,{headers:authHeaders()});
+    if(!r.ok){toast('Demande introuvable.');return}
+    const d=await safeJson(r);
+    currentDetailDemande=d;
+    renderDetail(d);
+    show('s-detail');
+  }catch(e){toast(friendlyNetworkError(e))}
+}
+function renderDetail(d){
+  var c=document.getElementById('detail-content');
+  var prestations=[];
+  try{var n=JSON.parse(d.notes);if(n.prestations)prestations=n.prestations}catch(e){}
+  var st=STATUTS[d.statut]||['',''];
+  var locked=d.statut==='acceptee'||d.statut==='en_cours'||d.statut==='terminee';
+  var hasPhotos=getPhotosFromNotes(d.notes).length>0;
+  var html='';
+  if(locked)html+='<div class="locked-banner"><span>🔒</span><div>Cette demande a été acceptée'+
+    (d.statut==='en_cours'?' et est en cours':'')+(d.statut==='terminee'?' et est terminée':'')+
+    '. Elle ne peut plus être modifiée ou annulée. Une annulation à ce stade peut entraîner des pénalités.</div></div>';
+  html+='<div class="detail-card">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
+      '<span style="font-weight:700;font-size:13px;color:var(--gray)">'+escapeHtml(d.numero_anonyme||'')+'</span>'+
+      '<span class="demand-status '+st[1]+'" style="font-size:13px">'+st[0]+'</span>'+
+    '</div>'+
+    (prestations.length?prestations.map(function(p){
+      var det=p.details&&Object.keys(p.details).length?Object.values(p.details).map(escapeHtml).join(' • '):'';
+      return '<div class="detail-presta"><span class="detail-presta-icon">'+(ICONS[p.type]||'✨')+'</span>'+
+        '<div><div class="detail-presta-name">'+escapeHtml(p.type)+'</div>'+
+        (det?'<div class="detail-presta-info">'+det+'</div>':'')+
+        (p.description?'<div class="detail-presta-info">'+escapeHtml(p.description)+'</div>':'')+
+        '</div></div>';
+    }).join(''):
+    '<div class="detail-presta"><span class="detail-presta-icon">'+(ICONS[d.prestation]||'✨')+'</span><div class="detail-presta-name">'+escapeHtml(d.prestation)+'</div></div>')+
+  '</div>';
+  if(hasPhotos)html+='<div class="detail-card"><label style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;display:block">📸 Photos</label><div class="photo-previews" id="photos-detail"></div></div>';
+  html+='<div class="detail-card">'+
+    '<div class="field-group" style="margin-bottom:10px"><label>📍 Adresse</label><div style="font-size:14px">'+escapeHtml(d.adresse)+'</div></div>'+
+    (d.creneau?'<div class="field-group" style="margin-bottom:0"><label>📅 Créneau</label><div style="font-size:14px">'+formatCreneau(d.creneau)+'</div></div>':'')+
+  '</div>';
+  if(!locked)html+='<div class="detail-actions">'+
+    '<button class="btn-modify" onclick="openModifyDemande()">✏️ Modifier</button>'+
+    '<button class="btn-delete" onclick="deleteDemande()">🗑️ Supprimer</button>'+
+  '</div>';
+  if(d.statut==='devis_recus'||d.statut==='acceptee'||d.statut==='en_cours')
+    html+='<button class="modal-send-btn" style="margin-top:14px" onclick="goTab(\'devis\')">📋 Voir les devis reçus</button>';
+  c.innerHTML=html;
+  if(hasPhotos)renderPhotoPreviews(getPhotosFromNotes(d.notes),'photos-detail');
+}
+async function deleteDemande(){
+  if(!currentDetailDemande)return;
+  if(!confirm('Supprimer définitivement cette demande ?'))return;
+  try{
+    const r=await fetch(API+'/api/demandes/'+currentDetailDemande.id,{method:'DELETE',headers:authHeaders()});
+    const d=await safeJson(r);
+    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    toast('🗑️ Demande supprimée.');goTab('home');
+  }catch(e){toast(friendlyNetworkError(e))}
+}
+function openModifyDemande(){
+  if(!currentDetailDemande)return;
+  var prestations=[];
+  try{var n=JSON.parse(currentDetailDemande.notes);if(n.prestations)prestations=n.prestations}catch(e){}
+  if(!prestations.length)prestations=[{type:currentDetailDemande.prestation,description:'',details:{}}];
+  multiFlow={active:true,queue:prestations.map(function(p){return p.type}),current:0,results:[],editMode:true,editId:currentDetailDemande.id,editData:prestations};
+  photos=[];
+  openServiceForm(multiFlow.queue[0]);
+  setTimeout(function(){prefillModifyForm(prestations[0])},50);
+}
+function prefillModifyForm(p){
+  if(!p)return;
+  if(p.description){var desc=document.getElementById('f-desc');if(desc)desc.value=p.description}
+  if(p.details){
+    Object.entries(p.details).forEach(function(entry){
+      var group=entry[0],value=entry[1];
+      document.querySelectorAll('[data-group="'+group+'"]').forEach(function(b){
+        if(b.textContent.trim()===value)b.classList.add('sel');
+      });
+      if(group==='quantite'){var qEl=document.getElementById('f-quantite');if(qEl)qEl.value=value}
+    });
+  }
+  if(isLastInFlow()&&currentDetailDemande){var a=document.getElementById('f-addr');if(a)a.value=currentDetailDemande.adresse||''}
+  if(document.getElementById('prix-estime-box'))updateEstimation();
+}
+
+// ── NOTATION ──
+var noteDemandeId=null,noteSocieteId=null;
+function ouvrirNote(demandeId,societeId,proName){
+  noteDemandeId=demandeId;noteSocieteId=societeId;
+  var html='<div class="modal-title">⭐ Noter '+escapeHtml(proName)+'</div>'+
+    '<div class="modal-sub">Comment s\'est passée votre prestation ?</div>'+
+    '<div id="star-rating" style="display:flex;gap:12px;justify-content:center;margin:20px 0;font-size:36px">'+
+    '<span class="star" data-note="1" onclick="selectNote(1)" style="cursor:pointer;opacity:0.3">⭐</span>'+
+    '<span class="star" data-note="2" onclick="selectNote(2)" style="cursor:pointer;opacity:0.3">⭐</span>'+
+    '<span class="star" data-note="3" onclick="selectNote(3)" style="cursor:pointer;opacity:0.3">⭐</span>'+
+    '<span class="star" data-note="4" onclick="selectNote(4)" style="cursor:pointer;opacity:0.3">⭐</span>'+
+    '<span class="star" data-note="5" onclick="selectNote(5)" style="cursor:pointer;opacity:0.3">⭐</span>'+
+    '</div>'+
+    '<div id="note-label" style="text-align:center;font-weight:700;font-size:16px;margin-bottom:16px;color:var(--gray)">Sélectionnez une note</div>'+
+    '<div class="field-group"><label>Commentaire <span class="optional">(optionnel)</span></label>'+
+    '<textarea id="note-comment" rows="3" placeholder="Décrivez votre expérience..." style="resize:none"></textarea></div>'+
+    '<button class="modal-send-btn" onclick="envoyerNote(this)">✅ Envoyer mon avis</button>';
+  document.getElementById('modal-body').innerHTML=html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+var noteSelectionnee=0;
+var noteLabels={1:'😞 Très insatisfait',2:'😐 Insatisfait',3:'🙂 Correct',4:'😊 Satisfait',5:'🤩 Excellent !'};
+function selectNote(n){
+  noteSelectionnee=n;
+  document.querySelectorAll('.star').forEach(function(s,i){s.style.opacity=i<n?'1':'0.3'});
+  document.getElementById('note-label').textContent=noteLabels[n]||'';
+  document.getElementById('note-label').style.color=n>=4?'var(--green)':(n>=3?'#D97706':'var(--red)');
+}
+async function envoyerNote(btn){
+  if(!noteSelectionnee){toast('Sélectionnez une note.');return}
+  var comment=document.getElementById('note-comment')&&document.getElementById('note-comment').value.trim()||'';
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(API+'/api/evaluations',{method:'POST',headers:authHeaders(),body:JSON.stringify({demande_id:noteDemandeId,evalue_id:noteSocieteId,note:noteSelectionnee,commentaire:comment})});
+    if(!r.ok){const d=await safeJson(r);toast('Erreur : '+(d.error||''));if(btn)btn.disabled=false;return}
+    document.getElementById('modal-overlay').classList.remove('open');
+    toast('⭐ Merci pour votre avis !',4000);
+    loadDevis();
+  }catch(e){toast(friendlyNetworkError(e));if(btn)btn.disabled=false}
+}
+
+// ── PRO DEMANDES ──
+async function loadProDemandes(){
+  try{
+    const r=await fetch(API+'/api/demandes/all',{headers:authHeaders()});
+    const c=document.getElementById('pro-demandes-list');
+    if(r.status===401){return doLogout()}
+    if(!r.ok){c.innerHTML='<div class="empty-state"><span>📋</span><p>Aucune demande disponible.</p></div>';document.getElementById('stat-demandes').textContent='0';return}
+    const data=await safeJson(r);
+    document.getElementById('stat-demandes').textContent=data.length||0;
+    loadProDevisCount();
+    if(!data||!data.length){c.innerHTML='<div class="empty-state"><span>📋</span><p>Aucune demande pour l\u2019instant.<br>Revenez bientôt !</p></div>';return}
+    var html='';
+    data.forEach(function(d){
+      var hasPhotos=getPhotosFromNotes(d.notes).length>0;
+      var safeId=escAttr(d.id);
+      html+='<div class="demande-card">'+
+        '<div class="dc-header"><div class="dc-type">'+(ICONS[d.prestation]||'✨')+' '+escapeHtml(d.prestation)+'</div>'+
+        '<span class="dc-num">'+escapeHtml(d.numero_anonyme||'#???')+'</span></div>'+
+        '<div class="dc-info"><span>📍</span>'+escapeHtml(d.adresse)+'</div>'+
+        (d.creneau?'<div class="dc-info"><span>📅</span>'+formatCreneau(d.creneau)+'</div>':'')+
+        (d.notes?'<div style="font-size:12px;color:var(--gray);margin-top:6px;background:#F9FAFB;padding:8px;border-radius:8px">'+tryParseNotes(d.notes)+'</div>':'')+
+        (hasPhotos?'<div class="photo-previews" style="margin-top:8px" id="photos-pro-'+safeId+'"></div>':'')+
+        '<div class="devis-form">'+
+          '<label>💰 Votre prix (€ TTC)</label>'+
+          '<input type="number" inputmode="decimal" id="prix-'+safeId+'" placeholder="Ex: 150" min="1">'+
+          '<label>📝 Message pour le client</label>'+
+          '<textarea id="msg-'+safeId+'" rows="2" placeholder="Décrivez votre offre..." style="resize:none"></textarea>'+
+          '<button class="btn-devis" id="btn-devis-'+safeId+'" onclick="envoyerDevis(\''+safeId+'\')">✨ Envoyer mon devis</button>'+
+        '</div></div>';
+    });
+    c.innerHTML=html;
+    data.forEach(function(d){
+      var ph=getPhotosFromNotes(d.notes);
+      if(ph.length)renderPhotoPreviews(ph,'photos-pro-'+d.id);
+    });
+  }catch(e){document.getElementById('pro-demandes-list').innerHTML='<div class="empty-state"><span>📋</span><p>Erreur de chargement. Tirez vers le bas pour réessayer.</p></div>'}
+}
+
+async function loadProDevisCount(){
+  try{
+    const r=await fetch(API+'/api/devis/mes-devis',{headers:authHeaders()});
+    if(!r.ok)return;
+    const data=await safeJson(r);
+    document.getElementById('stat-devis').textContent=data.length||0;
+  }catch(e){}
+}
+
+async function loadProDevis(){
+  try{
+    const r=await fetch(API+'/api/devis/mes-devis',{headers:authHeaders()});
+    const c=document.getElementById('pro-devis-list');
+    if(r.status===401){return doLogout()}
+    if(!r.ok){c.innerHTML='<div class="empty-state"><span>💰</span><p>Aucun devis envoyé.</p></div>';return}
+    const data=await safeJson(r);
+    document.getElementById('stat-devis').textContent=data.length||0;
+    if(!data||!data.length){c.innerHTML='<div class="empty-state"><span>💰</span><p>Aucun devis envoyé pour l\u2019instant.</p></div>';return}
+
+    // Tri logique : terminé > en cours > accepté (paiement en attente) > en attente > refusé/annulé
+    function proDevisScore(v){
+      var demandeStatut=v.demande&&v.demande.statut;
+      if(v.statut==='accepte'&&demandeStatut==='terminee')return 0;
+      if(v.statut==='accepte'&&demandeStatut==='en_cours')return 1;
+      if(v.statut==='accepte')return 2;
+      if(v.statut==='envoye')return 3;
+      return 4; // refuse, annule_pro
+    }
+    data.sort(function(a,b){
+      var diff=proDevisScore(a)-proDevisScore(b);
+      if(diff!==0)return diff;
+      return new Date(b.created_at||0)-new Date(a.created_at||0);
+    });
+
+    var html='';
+    data.forEach(function(v){
+      var badge,extra='';
+      var safeVId=escAttr(v.id),safeDemandeId=escAttr(v.demande_id);
+      var demandeStatut=v.demande&&v.demande.statut;
+      if(v.statut==='accepte'&&demandeStatut==='terminee'){
+        badge='<span class="devis-badge badge-accepted">🏁 Terminé</span>';
+        var safeClientId=escAttr(v.demande&&v.demande.client_id);
+        extra='<div style="margin-top:10px">'+
+          '<button class="btn-accept" style="background:#6B7280" onclick="ouvrirNote(\''+safeDemandeId+'\',\''+safeClientId+'\',\'le client\')">⭐ Noter le client</button>'+
+        '</div>';
+      }else if(v.statut==='accepte'&&demandeStatut==='en_cours'){
+        badge='<span class="devis-badge badge-accepted">🔧 En cours</span>';
+        extra='<div style="display:flex;gap:8px;margin-top:10px">'+
+          '<button class="btn-accept" onclick="goToChat(\''+safeDemandeId+'\',\'Client\')">💬 Discuter</button>'+
+        '</div>';
+      }else if(v.statut==='accepte'){
+        badge='<span class="devis-badge badge-accepted">✅ Accepté — Paiement en attente</span>';
+        extra='<div style="display:flex;gap:8px;margin-top:10px">'+
+          '<button class="btn-accept" onclick="goToChat(\''+safeDemandeId+'\',\'Client\')">💬 Discuter</button>'+
+          '<button class="btn-refuse" onclick="annulerProDevis(\''+safeVId+'\',this)">🚫 Annuler</button>'+
+        '</div>';
+      }else if(v.statut==='refuse'){badge='<span class="devis-badge badge-refused">❌ Refusé</span>'}
+      else if(v.statut==='annule_pro'){badge='<span class="devis-badge badge-refused">🚫 Annulé par vous</span>'}
+      else{badge='<span class="devis-badge badge-pending">⏳ En attente</span>'}
+      html+='<div class="devis-card">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'+
+          '<div style="font-weight:700;font-size:15px;text-transform:capitalize">'+(ICONS[v.demande&&v.demande.prestation]||'✨')+' '+escapeHtml(v.demande&&v.demande.prestation||'')+'</div>'+badge+
+        '</div>'+
+        '<div style="font-size:12px;color:var(--gray)">📍 '+escapeHtml(v.demande&&v.demande.adresse||'')+'</div>'+
+        '<div style="font-size:24px;font-weight:800;color:var(--p);margin:8px 0">'+escapeHtml(v.prix_ttc)+' €</div>'+
+        (v.description?'<div style="font-size:13px;color:#374151">'+escapeHtml(v.description)+'</div>':'')+
+        extra+'</div>';
+    });
+    c.innerHTML=html;
+  }catch(e){console.error('loadProDevis',e)}
+}
+
+async function envoyerDevis(demandeId){
+  var prixEl=document.getElementById('prix-'+demandeId);
+  var prix=prixEl&&prixEl.value;
+  var msg=document.getElementById('msg-'+demandeId)&&document.getElementById('msg-'+demandeId).value||'';
+  if(!prix||isNaN(parseFloat(prix))||parseFloat(prix)<=0){toast('Entrez un prix valide.');return}
+  var btn=document.getElementById('btn-devis-'+demandeId);
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span>'}
+  try{
+    const r=await fetch(API+'/api/devis',{method:'POST',headers:authHeaders(),body:JSON.stringify({demande_id:demandeId,prix_ttc:parseFloat(prix),description:msg})});
+    const d=await safeJson(r);
+    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn){btn.disabled=false;btn.textContent='✨ Envoyer mon devis'}return}
+    toast('✅ Devis envoyé au client !');
+    loadProDemandes();loadProDevisCount();
+  }catch(e){toast(friendlyNetworkError(e));if(btn){btn.disabled=false;btn.textContent='✨ Envoyer mon devis'}}
+}
+
+// ── TARIFICATION (Vague 2) ──
+const TARIF_CATEGORIES=[
+  {key:'voiture',label:'🚗 Voiture',tiers:['citadine','suv_4x4','monospace','utilitaire'],
+    tierLabels:{citadine:'Citadine',suv_4x4:'SUV / 4x4',monospace:'Monospace',utilitaire:'Utilitaire / Van'},
+    tierPlaceholders:{citadine:85,suv_4x4:128,monospace:132,utilitaire:153},
+    note:'Prix pour un nettoyage intérieur + extérieur complet, état propre. Le type de nettoyage (intérieur seul/extérieur seul) ajuste ensuite automatiquement.'},
+  {key:'canape',label:'🛋️ Canapé',tiers:['A','B','C','D'],
+    tierLabels:{A:'2 places',B:'3 places',C:'4 places',D:'5+ places / angle'},
+    tierPlaceholders:{A:80,B:92,C:108,D:128},
+    note:'Prix pour un canapé en tissu, état propre. Cuir/velours ajustent ensuite automatiquement le prix.'},
+  {key:'matelas',label:'🛏️ Matelas',unite:true,uniteLabel:'matelas',tiers:['A','B','C','D'],
+    tierLabels:{A:'90x190 cm',B:'140x190 cm',C:'160x200 cm',D:'180x200 cm+'},
+    tierPlaceholders:{A:45,B:60,C:72,D:90},
+    note:'Prix par matelas, état propre. Le nombre de matelas est fourni par le client.'},
+  {key:'terrasse',label:'☀️ Terrasse',tiers:['A','B','C','D'],
+    tierLabels:{A:'Moins de 20 m²',B:'20 à 50 m²',C:'50 à 100 m²',D:'Plus de 100 m²'},
+    tierPlaceholders:{A:70,B:140,C:252,D:420},
+    note:'Prix pour une terrasse en carrelage, état propre. Bois/béton/pierre ajustent ensuite automatiquement le prix.'},
+  {key:'piscine',label:'💧 Piscine',tiers:['entretien','complet','eau_verte'],
+    tierLabels:{entretien:'Entretien simple',complet:'Nettoyage complet',eau_verte:'Eau verte / remise en état'},
+    tierPlaceholders:{entretien:65,complet:130,eau_verte:585},
+    note:'Prix pour un bassin de taille moyenne, état propre. La surface exacte ajuste ensuite automatiquement le prix.'},
+  {key:'toiture',label:'🏠 Toiture',tiers:['A','B','C','D'],
+    tierLabels:{A:'Moins de 50 m²',B:'50 à 100 m²',C:'100 à 200 m²',D:'Plus de 200 m²'},
+    tierPlaceholders:{A:675,B:1500,C:2850,D:4950},
+    note:'Prix pour une toiture en tuiles, démoussage + hydrofuge, état propre. Ardoises/fibrociment/zinc ajustent ensuite automatiquement le prix.'},
+  {key:'vitres',label:'🪟 Vitres',unite:true,uniteLabel:'vitre',tiers:['maison','appartement','commerce','bureaux'],
+    tierLabels:{maison:'Maison',appartement:'Appartement',commerce:'Commerce',bureaux:'Bureaux'},
+    tierPlaceholders:{maison:6,appartement:6,commerce:7.2,bureaux:7.8},
+    note:'Prix par vitre, état propre. Le nombre de vitres est fourni par le client.'},
+  {key:'autre',label:'➕ Autre',tiers:null,placeholder:60,note:'Prix de base indicatif, à ajuster au cas par cas dans votre message au client.'}
+];
+
+async function loadProTarifs(){
+  var c=document.getElementById('pro-tarifs-form');
+  var html='';
+  TARIF_CATEGORIES.forEach(function(cat){
+    html+='<div class="field-group" style="border:1px solid var(--border);border-radius:10px;padding:12px 14px">'+
+      '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:0">'+
+        '<input type="checkbox" id="propose-'+cat.key+'" style="width:auto" onchange="toggleTarifInput(\''+cat.key+'\')">'+
+        '<span>'+cat.label+' — je propose cette prestation</span>'+
+      '</label>'+
+      '<div style="font-size:11px;color:var(--gray);margin:4px 0 8px">'+cat.note+'</div>';
+    if(cat.tiers){
+      html+='<div id="tarif-tiers-'+cat.key+'" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+      cat.tiers.forEach(function(tier){
+        var ph=cat.unite?('ex: '+cat.tierPlaceholders[tier]):('ex: '+cat.tierPlaceholders[tier]);
+        html+='<div><label style="font-size:11px;margin-top:0">'+cat.tierLabels[tier]+(cat.unite?' (par '+cat.uniteLabel+')':'')+'</label>'+
+          '<input type="number" inputmode="decimal" min="0.5" step="0.5" id="tarif-'+cat.key+'-'+tier+'" placeholder="'+ph+'" disabled></div>';
+      });
+      html+='</div>';
+    }else{
+      html+='<input type="number" inputmode="decimal" min="1" id="tarif-'+cat.key+'" placeholder="Prix de base, ex: '+cat.placeholder+'" disabled>';
+    }
+    html+='</div>';
+  });
+  c.innerHTML=html;
+  try{
+    const r=await fetch(API+'/api/societes/tarifs',{headers:authHeaders()});
+    if(!r.ok)return;
+    const d=await safeJson(r);
+    var tarifs=d.tarifs||{};
+    var tarifsUnitaires=d.tarifs_unitaires||{};
+    var prestations=d.prestations||[];
+    TARIF_CATEGORIES.forEach(function(cat){
+      var checkbox=document.getElementById('propose-'+cat.key);
+      var propose=prestations.indexOf(cat.key)>=0;
+      if(checkbox)checkbox.checked=propose;
+      var source=cat.unite?tarifsUnitaires:tarifs;
+      var valeurCat=source[cat.key];
+      if(cat.tiers){
+        cat.tiers.forEach(function(tier){
+          var input=document.getElementById('tarif-'+cat.key+'-'+tier);
+          if(input){
+            if(valeurCat&&valeurCat[tier])input.value=valeurCat[tier];
+            input.disabled=!propose;
+          }
+        });
+      }else{
+        var input=document.getElementById('tarif-'+cat.key);
+        if(input){
+          if(valeurCat)input.value=valeurCat;
+          input.disabled=!propose;
+        }
+      }
+    });
+  }catch(e){}
+}
+function toggleTarifInput(key){
+  var checkbox=document.getElementById('propose-'+key);
+  var cat=TARIF_CATEGORIES.filter(function(c){return c.key===key})[0];
+  if(!cat)return;
+  if(cat.tiers){
+    cat.tiers.forEach(function(tier){
+      var input=document.getElementById('tarif-'+key+'-'+tier);
+      if(input)input.disabled=!checkbox.checked;
+    });
+  }else{
+    var input=document.getElementById('tarif-'+key);
+    if(input)input.disabled=!checkbox.checked;
+  }
+}
+async function saveTarifs(){
+  var tarifs={},tarifsUnitaires={},prestations=[];
+  TARIF_CATEGORIES.forEach(function(cat){
+    var checkbox=document.getElementById('propose-'+cat.key);
+    if(!checkbox||!checkbox.checked)return;
+    prestations.push(cat.key);
+    var destination=cat.unite?tarifsUnitaires:tarifs;
+    if(cat.tiers){
+      var parPalier={};
+      cat.tiers.forEach(function(tier){
+        var input=document.getElementById('tarif-'+cat.key+'-'+tier);
+        if(input&&input.value.trim())parPalier[tier]=parseFloat(input.value);
+      });
+      if(Object.keys(parPalier).length)destination[cat.key]=parPalier;
+    }else{
+      var input=document.getElementById('tarif-'+cat.key);
+      if(input&&input.value.trim())destination[cat.key]=parseFloat(input.value);
+    }
+  });
+  if(!prestations.length){toast('Cochez au moins une prestation que vous proposez.');return}
+  var btn=document.getElementById('save-tarifs-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  try{
+    const r=await fetch(API+'/api/societes/tarifs',{method:'PATCH',headers:authHeaders(),body:JSON.stringify({tarifs,tarifs_unitaires:tarifsUnitaires,prestations})});
+    const d=await safeJson(r);
+    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    toast('💾 Tarifs enregistrés !');
+  }catch(e){toast(friendlyNetworkError(e))}
+  finally{btn.disabled=false;btn.textContent='💾 Enregistrer mes tarifs'}
+}
+
+async function toggleDispo(){
+  disponible=!disponible;
+  document.getElementById('dispo-toggle').classList.toggle('on',disponible);
+  document.getElementById('dispo-sub').textContent=disponible?'Vous êtes disponible':'Vous êtes indisponible';
+  try{
+    const r=await fetch(API+'/api/societes/disponibilite',{method:'PATCH',headers:authHeaders(),body:JSON.stringify({disponible})});
+    if(!r.ok){
+      disponible=!disponible;
+      document.getElementById('dispo-toggle').classList.toggle('on',disponible);
+      document.getElementById('dispo-sub').textContent=disponible?'Vous êtes disponible':'Vous êtes indisponible';
+      toast('Erreur, réessayez.');return;
+    }
+  }catch(e){
+    disponible=!disponible;
+    document.getElementById('dispo-toggle').classList.toggle('on',disponible);
+    document.getElementById('dispo-sub').textContent=disponible?'Vous êtes disponible':'Vous êtes indisponible';
+    toast(friendlyNetworkError(e));return;
+  }
+  toast(disponible?'✅ Disponible':'❌ Indisponible');
+}
+
+async function annulerProDevis(devisId,btn){
+  if(!confirm('Annuler ce devis accepté ? Le client sera notifié.'))return;
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(API+'/api/devis/'+devisId+'/annuler-pro',{method:'POST',headers:authHeaders()});
+    const d=await safeJson(r);
+    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn)btn.disabled=false;return}
+    toast('🚫 Devis annulé.');loadProDevis();
+  }catch(e){toast(friendlyNetworkError(e));if(btn)btn.disabled=false}
+}
+
+// ── NOTIFICATIONS MESSAGES NON LUS ──
+function getLastReadMap(){
+  if(!currentUser||!currentUser.id)return{};
+  try{return JSON.parse(localStorage.getItem('gleam_last_read_'+currentUser.id)||'{}')}catch(e){return{}}
+}
+function setLastRead(demandeId){
+  if(!demandeId||!currentUser||!currentUser.id)return;
+  var m=getLastReadMap();
+  m[demandeId]=new Date().toISOString();
+  try{localStorage.setItem('gleam_last_read_'+currentUser.id,JSON.stringify(m))}catch(e){}
+}
+function isConvUnread(c){
+  if(!c||!c.dernier_message_date)return false;
+  if(c.dernier_message_expediteur_id&&currentUser&&String(c.dernier_message_expediteur_id)===String(currentUser.id))return false;
+  var lastRead=getLastReadMap()[c.demande_id];
+  if(!lastRead)return true;
+  return new Date(c.dernier_message_date)>new Date(lastRead);
+}
+function updateNavBadge(hasUnread){
+  var cls=isPro()?'nav-badge-pro':'nav-badge-client';
+  document.querySelectorAll('.'+cls).forEach(function(el){el.style.display=hasUnread?'block':'none'});
+}
+async function refreshUnreadBadge(){
+  if(!currentUser)return;
+  try{
+    const r=await fetch(API+'/api/conversations',{headers:authHeaders()});
+    if(!r.ok)return;
+    const data=await safeJson(r);
+    updateNavBadge(hasAnyUnreadVisible(data));
+  }catch(e){}
+}
+let unreadPollInterval=null;
+function startUnreadPoll(){
+  stopUnreadPoll();
+  refreshUnreadBadge();
+  unreadPollInterval=setInterval(refreshUnreadBadge,20000);
+}
+function stopUnreadPoll(){if(unreadPollInterval){clearInterval(unreadPollInterval);unreadPollInterval=null}}
+
+// ── CONVERSATIONS ──
+async function loadConversationsClient(){
+  try{
+    const r=await fetch(API+'/api/conversations',{headers:authHeaders()});
+    const c=document.getElementById('client-conv-list');
+    if(!r.ok){c.innerHTML='<div class="empty-state"><span>💬</span><p>Aucun message pour l\u2019instant.</p></div>';return}
+    const data=await safeJson(r);
+    renderConvList(c,data);
+    updateNavBadge(hasAnyUnreadVisible(data));
+  }catch(e){}
+}
+async function loadConversationsPro(){
+  try{
+    const r=await fetch(API+'/api/conversations',{headers:authHeaders()});
+    const c=document.getElementById('pro-conv-list');
+    if(!r.ok){c.innerHTML='<div class="empty-state"><span>💬</span><p>Aucun message pour l\u2019instant.</p></div>';return}
+    const data=await safeJson(r);
+    renderConvList(c,data);
+    updateNavBadge(hasAnyUnreadVisible(data));
+  }catch(e){}
+}
+// Ne considère que les conversations réellement affichées et cliquables dans la liste
+// (acceptee/en_cours/terminee), pour garantir que le badge peut toujours être effacé par l'utilisateur.
+function hasAnyUnreadVisible(data){
+  return (data||[]).filter(function(c){return c.statut==='acceptee'||c.statut==='en_cours'||c.statut==='terminee'}).some(isConvUnread);
+}
+function renderConvList(container,data){
+  var active=(data||[]).filter(function(c){return c.statut==='acceptee'||c.statut==='en_cours'});
+  var termine=(data||[]).filter(function(c){return c.statut==='terminee'});
+  if(!active.length&&!termine.length){container.innerHTML='<div class="empty-state"><span>💬</span><p>Aucune conversation active.<br>Acceptez un devis pour démarrer !</p></div>';return}
+  var html='';
+  if(active.length){
+    html+='<div class="section-title" style="padding:0 0 8px">💬 En cours</div>';
+    active.forEach(function(c){html+=convRowHtml(c)});
+  }
+  if(termine.length){
+    html+='<div class="section-title" style="padding:16px 0 8px;color:var(--gray)">🏁 Terminées</div>';
+    termine.forEach(function(c){
+      var name=c.autre_partie?((c.autre_partie.prenom||'')+' '+(c.autre_partie.nom||'')).trim():'Utilisateur Gleam';
+      var unread=isConvUnread(c);
+      html+='<div class="conv-row" style="opacity:0.75" onclick="goToChat(\''+escAttr(c.demande_id)+'\',\''+escAttr(name)+'\')">'+
+        '<div class="conv-avatar">'+(ICONS[c.prestation]||'✨')+'</div>'+
+        '<div class="conv-body"><div class="conv-name">'+escapeHtml(name)+(unread?'<span class="conv-dot" style="display:inline-block;vertical-align:middle"></span>':'')+'</div>'+
+        '<div class="conv-preview">Prestation terminée — consulter l\'historique</div></div>'+
+        '<div class="conv-time">🏁</div></div>';
+    });
+  }
+  container.innerHTML=html;
+}
+function convRowHtml(c){
+  var nameRaw=c.autre_partie?((c.autre_partie.prenom||'')+' '+(c.autre_partie.nom||'')).trim():'Utilisateur Gleam';
+  var preview=c.dernier_message||'Démarrez la conversation...';
+  var time=c.dernier_message_date?new Date(c.dernier_message_date).toLocaleDateString('fr-FR'):'';
+  var unread=isConvUnread(c);
+  return'<div class="conv-row" onclick="goToChat(\''+escAttr(c.demande_id)+'\',\''+escAttr(nameRaw)+'\')">'+
+    '<div class="conv-avatar">'+(ICONS[c.prestation]||'✨')+'</div>'+
+    '<div class="conv-body"><div class="conv-name">'+escapeHtml(nameRaw)+(unread?'<span class="conv-dot" style="display:inline-block;vertical-align:middle"></span>':'')+'</div><div class="conv-preview">'+escapeHtml(preview)+'</div></div>'+
+    '<div class="conv-time">'+time+'</div></div>';
+}
+
+// ── CHAT ──
+function goToChat(demandeId,otherName){
+  currentChatDemandeId=demandeId;
+  document.getElementById('chat-title').textContent=otherName||'Conversation';
+  document.getElementById('chat-messages').innerHTML='';
+  show('s-chat');
+  loadChatMessages();
+  stopChatPoll();
+  chatPollInterval=setInterval(loadChatMessages,4000);
+  setLastRead(demandeId);
+  refreshUnreadBadge();
+  fetch(API+'/api/demandes/'+demandeId,{headers:authHeaders()})
+    .then(function(r){return safeJson(r)})
+    .then(function(d){
+      var bar=document.querySelector('.chat-input-bar');
+      if(d&&d.statut==='terminee'){
+        if(bar)bar.innerHTML='<div style="text-align:center;padding:12px;color:var(--gray);font-size:13px;width:100%">🏁 Cette prestation est terminée. La messagerie est fermée.</div>';
+      }
+    }).catch(function(){});
+}
+function backFromChat(){
+  stopChatPoll();
+  if(isPro())goProTab('pro-messages');else goTab('messages');
+}
+function stopChatPoll(){if(chatPollInterval){clearInterval(chatPollInterval);chatPollInterval=null}}
+async function loadChatMessages(){
+  if(!currentChatDemandeId)return;
+  try{
+    const r=await fetch(API+'/api/messages/'+currentChatDemandeId,{headers:authHeaders()});
+    if(!r.ok)return;
+    const data=await safeJson(r);
+    const c=document.getElementById('chat-messages');
+    var atBottom=c.scrollTop+c.clientHeight>=c.scrollHeight-20;
+    var html='';
+    if(!data||!data.length){html='<div class="empty-state" style="padding:30px"><span>💬</span><p>Démarrez la conversation !</p></div>'}
+    else{data.forEach(function(m){var mine=currentUser&&String(m.expediteur_id)===String(currentUser.id);html+='<div class="chat-bubble '+(mine?'mine':'theirs')+'">'+escapeHtml(m.contenu)+'</div>'})}
+    c.innerHTML=html;
+    if(atBottom||!data||data.length<=1)c.scrollTop=c.scrollHeight;
+    setLastRead(currentChatDemandeId);
+  }catch(e){}
+}
+async function sendChatMsg(){
+  var input=document.getElementById('chat-input');
+  var msg=input.value.trim();
+  if(!msg||!currentChatDemandeId)return;
+  var sendBtn=document.getElementById('chat-send-btn');
+  input.value='';
+  if(sendBtn)sendBtn.disabled=true;
+  try{
+    const r=await fetch(API+'/api/messages',{method:'POST',headers:authHeaders(),body:JSON.stringify({demande_id:currentChatDemandeId,contenu:msg})});
+    const d=await safeJson(r);
+    if(!r.ok){toast(d.error||'Message bloqué.');input.value=msg;return}
+    loadChatMessages();
+  }catch(e){toast(friendlyNetworkError(e));input.value=msg}
+  finally{if(sendBtn)sendBtn.disabled=false}
+}
+
+// ── PAIEMENT ──
+async function openPayment(devisId,montant){
+  currentDevisId=devisId;
+  document.getElementById('payment-sub').textContent='Montant : '+montant+' € TTC';
+  document.getElementById('payment-error').classList.remove('show');
+  document.getElementById('payment-overlay').classList.add('open');
+  document.getElementById('payment-btn').disabled=false;
+  document.getElementById('payment-btn').textContent='🔒 Payer maintenant';
+  try{
+    const r=await fetch(API+'/api/paiements/intent',{method:'POST',headers:authHeaders(),body:JSON.stringify({devis_id:devisId})});
+    const d=await safeJson(r);
+    if(!r.ok){document.getElementById('payment-error').textContent=d.error||'Erreur';document.getElementById('payment-error').classList.add('show');return}
+    if(!d.client_secret||!d.publishable_key){document.getElementById('payment-error').textContent='Réponse de paiement invalide.';document.getElementById('payment-error').classList.add('show');return}
+    currentPaymentIntent=d.client_secret;
+    if(!stripeInstance)stripeInstance=Stripe(d.publishable_key);
+    var elements=stripeInstance.elements();
+    if(cardElement)cardElement.destroy();
+    cardElement=elements.create('card',{style:{base:{fontSize:'16px',color:'#111827'}}});
+    cardElement.mount('#card-element');
+  }catch(e){document.getElementById('payment-error').textContent=friendlyNetworkError(e);document.getElementById('payment-error').classList.add('show')}
+}
+function closePayment(){
+  document.getElementById('payment-overlay').classList.remove('open');
+  if(cardElement){cardElement.destroy();cardElement=null}
+  currentPaymentIntent=null;currentDevisId=null;
+}
+async function confirmPayment(){
+  if(!stripeInstance||!cardElement||!currentPaymentIntent)return;
+  var btn=document.getElementById('payment-btn');
+  btn.disabled=true;btn.textContent='⏳ Traitement...';
+  document.getElementById('payment-error').classList.remove('show');
+  var result;
+  try{
+    result=await stripeInstance.confirmCardPayment(currentPaymentIntent,{payment_method:{card:cardElement}});
+  }catch(e){
+    document.getElementById('payment-error').textContent=friendlyNetworkError(e);
+    document.getElementById('payment-error').classList.add('show');
+    btn.disabled=false;btn.textContent='🔒 Payer maintenant';
+    return;
+  }
+  if(result.error){
+    document.getElementById('payment-error').textContent=result.error.message;
+    document.getElementById('payment-error').classList.add('show');
+    btn.disabled=false;btn.textContent='🔒 Payer maintenant';
+    return;
+  }
+  if(result.paymentIntent&&result.paymentIntent.status==='succeeded'){
+    try{
+      const cr=await fetch(API+'/api/paiements/confirmer',{method:'POST',headers:authHeaders(),body:JSON.stringify({payment_intent_id:result.paymentIntent.id})});
+      if(!cr.ok){
+        document.getElementById('payment-error').textContent='Paiement effectué mais la confirmation a échoué. Contactez le support.';
+        document.getElementById('payment-error').classList.add('show');
+        btn.disabled=false;btn.textContent='🔒 Payer maintenant';
+        return;
+      }
+    }catch(e){
+      document.getElementById('payment-error').textContent='Paiement effectué mais la confirmation a échoué. Contactez le support.';
+      document.getElementById('payment-error').classList.add('show');
+      btn.disabled=false;btn.textContent='🔒 Payer maintenant';
+      return;
+    }
+    closePayment();
+    toast('✅ Paiement réussi ! La prestation est confirmée.',5000);
+    loadDevis();
+  }
+}
+async function libererPaiement(demandeId){
+  if(!confirm('Confirmez-vous que la prestation a bien été réalisée ? Le paiement sera libéré au prestataire.'))return;
+  try{
+    const r=await fetch(API+'/api/paiements/liberer',{method:'POST',headers:authHeaders(),body:JSON.stringify({demande_id:demandeId})});
+    const d=await safeJson(r);
+    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    toast('✅ Prestation confirmée ! Le prestataire a été payé.',5000);
+    loadDevis();loadDemandes();
+  }catch(e){toast(friendlyNetworkError(e))}
+}
+
+// ── SERVICES ──
+function toggleSvc(card,svc){
+  var idx=selectedServices.indexOf(svc);
+  if(idx>=0){selectedServices.splice(idx,1);card.classList.remove('selected')}
+  else{selectedServices.push(svc);card.classList.add('selected')}
+  var btn=document.getElementById('continue-svc-btn');
+  document.getElementById('svc-count').textContent=selectedServices.length;
+  btn.style.display=selectedServices.length>0?'block':'none';
+}
+function startMultiServiceFlow(){
+  if(!selectedServices.length)return;
+  multiFlow={active:true,queue:selectedServices.slice(),current:0,results:[]};
+  photos=[];
+  openServiceForm(multiFlow.queue[0]);
+}
+function openService(type){
+  photos=[];
+  multiFlow={active:false,queue:[],current:0,results:[]};
+  openServiceForm(type);
+}
+function openServiceForm(type){
+  currentFormType=type;
+  var bodies={voiture:voitureForm,canape:canapeForm,matelas:matelasForm,terrasse:terrasseForm,piscine:piscineForm,toiture:toitureForm,vitres:vitresForm,autre:autreForm};
+  var html=(bodies[type]||autreForm)();
+  if(multiFlow.active&&multiFlow.queue.length>1){
+    html='<div style="background:var(--light);color:var(--p);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;margin-bottom:12px">Prestation '+(multiFlow.current+1)+'/'+multiFlow.queue.length+'</div><br>'+html;
+  }
+  document.getElementById('modal-body').innerHTML=html;
+  document.getElementById('modal-overlay').classList.add('open');
+  renderPhotoInput();
+  if(document.getElementById('prix-estime-box'))updateEstimation();
+}
+function closeModal(e){if(e.target===document.getElementById('modal-overlay')){closeModalForce()}}
+function closeModalForce(){
+  var hadData=multiFlow.active||(document.getElementById('f-addr')&&document.getElementById('f-addr').value.trim());
+  if(hadData&&!confirm('Fermer sans envoyer cette demande ? Les informations saisies seront perdues.'))return;
+  document.getElementById('modal-overlay').classList.remove('open');
+  multiFlow={active:false,queue:[],current:0,results:[]};
+  photos=[];
+}
+function isLastInFlow(){return!multiFlow.active||multiFlow.current===multiFlow.queue.length-1}
+
+function dateTimeBlock(isLast){
+  var today=localDateISO(new Date());
+  if(multiFlow.active&&!isLast)return '<div class="divider"></div><div style="font-size:12px;color:var(--gray);text-align:center;padding:8px">📅 La date, l\'heure et l\'adresse seront demandées à la dernière étape.</div>';
+  var opts='';
+  for(var i=0;i<27;i++){var h=Math.floor(i/2)+7,m=i%2?'30':'00';opts+='<option>'+h+'h'+m+'</option>'}
+  var flexBtns=['Heure exacte','± 30 min','± 1 heure','Matinée','Après-midi','Toute la journée'].map(function(l,i){return'<button class="flex-opt'+(i===0?' sel':'')+'" onclick="selFlex(this)">'+l+'</button>'}).join('');
+  return '<div class="divider"></div>'+
+    '<div class="field-group"><label>📅 Date et heure souhaitées</label>'+
+    '<div class="datetime-row"><input type="date" id="f-date" min="'+today+'" value="'+today+'"><select id="f-time">'+opts+'</select></div>'+
+    '<label style="margin-top:12px">Flexibilité <span class="optional">(optionnel)</span></label>'+
+    '<div class="flex-opts">'+flexBtns+'</div></div>'+
+    '<div class="field-group"><label>📍 Adresse d\'intervention</label><input type="text" id="f-addr" placeholder="12 rue de la Paix, 75001 Paris" autocomplete="street-address"></div>'+
+    '<div class="field-group"><label>📸 Photos <span class="optional">(optionnel, max 5)</span></label>'+
+    '<div class="photo-zone" onclick="document.getElementById(\'photo-input\').click()"><span style="font-size:28px">📷</span><p>Touchez pour ajouter des photos</p></div>'+
+    '<div class="upload-progress" id="upload-progress">Compression des photos...</div>'+
+    '<div class="photo-previews" id="photo-previews"></div></div>';
+}
+function descBlock(ph){return'<div class="field-group"><label>📝 Description <span class="optional">(optionnel)</span></label><textarea id="f-desc" rows="3" placeholder="'+ph+'" style="resize:none"></textarea></div>'}
+function sendBtn(type){
+  var isLast=isLastInFlow();
+  var label=multiFlow.active&&!isLast?'Suivant →':'✨ Envoyer ma demande';
+  var html='';
+  if(multiFlow.active&&multiFlow.current>0){
+    html+='<button type="button" onclick="goToPreviousStep(\''+type+'\')" style="width:100%;padding:12px;background:none;border:2px solid var(--border);color:#374151;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">← Étape précédente</button>';
+  }
+  html+='<button class="modal-send-btn" id="send-demand-btn" onclick="sendDemand(\''+type+'\')">'+label+'</button>';
+  return html;
+}
+function goToPreviousStep(currentType){
+  if(!multiFlow.active||multiFlow.current<=0)return;
+  // Sauvegarde l'état actuel de l'étape en cours avant de reculer, pour ne rien perdre si l'utilisateur revient
+  var desc=document.getElementById('f-desc')&&document.getElementById('f-desc').value.trim()||'';
+  var details={};
+  document.querySelectorAll('.opt-btn.sel').forEach(function(b){var group=b.getAttribute('data-group');if(group)details[group]=b.textContent.trim()});
+  if(UNIT_CATEGORIES_CLIENT.indexOf(currentType)>=0){
+    var qEl=document.getElementById('f-quantite');
+    if(qEl&&qEl.value.trim())details['quantite']=qEl.value.trim();
+  }
+  multiFlow.results[multiFlow.current]={type:currentType,description:desc,details:details};
+  multiFlow.current--;
+  openServiceForm(multiFlow.queue[multiFlow.current]);
+  if(multiFlow.results[multiFlow.current]){setTimeout(function(){prefillModifyForm(multiFlow.results[multiFlow.current])},50)}
+  else if(multiFlow.editMode&&multiFlow.editData&&multiFlow.editData[multiFlow.current]){setTimeout(function(){prefillModifyForm(multiFlow.editData[multiFlow.current])},50)}
+}
+
+function etatBlock(){
+  return '<div class="field-group"><label>🧽 État actuel</label><div class="options-grid">'+
+    '<button class="opt-btn sel" data-group="etat" data-etat-val="propre" onclick="selOpt(this)">Propre</button>'+
+    '<button class="opt-btn" data-group="etat" data-etat-val="moyen" onclick="selOpt(this)">Moyennement sale</button>'+
+    '<button class="opt-btn" data-group="etat" data-etat-val="sale" onclick="selOpt(this)">Sale</button>'+
+    '<button class="opt-btn" data-group="etat" data-etat-val="tres_sale" onclick="selOpt(this)">Très sale</button>'+
+    '</div><div id="prix-estime-box" style="margin-top:10px"></div></div>';
+}
+
+function quantiteBlock(label,placeholder){
+  return '<div class="field-group"><label>'+label+'</label>'+
+    '<input type="number" inputmode="numeric" min="1" id="f-quantite" placeholder="'+placeholder+'" oninput="updateEstimation()"></div>';
+}
+
+var currentFormType=null;
+
+const UNIT_CATEGORIES_CLIENT=['vitres','matelas'];
+const COEF_KEYS=['taille','matiere','portee','intervention','type_bien','places','forme','type_bassin'];
+
+async function updateEstimation(){
+  if(!currentFormType)return;
+  var box=document.getElementById('prix-estime-box');
+  if(!box)return;
+  var etatBtn=document.querySelector('[data-group="etat"].sel');
+  var etat=etatBtn?etatBtn.getAttribute('data-etat-val'):'propre';
+  box.innerHTML='<div style="font-size:12px;color:var(--gray)">Calcul de l\'estimation...</div>';
+  try{
+    var url=API+'/api/tarifs/estimation?prestation='+encodeURIComponent(currentFormType)+'&etat='+encodeURIComponent(etat);
+    if(UNIT_CATEGORIES_CLIENT.indexOf(currentFormType)>=0){
+      var qEl=document.getElementById('f-quantite');
+      var quantite=qEl?parseInt(qEl.value,10):0;
+      if(!quantite||quantite<=0){
+        box.innerHTML='<div style="font-size:12px;color:var(--gray);font-style:italic">💡 Indiquez une quantité ci-dessus pour voir une estimation de prix</div>';
+        return;
+      }
+      url+='&quantite='+encodeURIComponent(quantite);
+    }
+    // Ajoute tout coefficient sélectionné dans le formulaire courant (taille, matière, portée, intervention...),
+    // quelle que soit la catégorie — chaque coefficient n'est utilisé par le serveur que s'il est pertinent.
+    COEF_KEYS.forEach(function(key){
+      var btn=document.querySelector('[data-coef-key="'+key+'"].sel');
+      if(btn)url+='&'+key+'='+encodeURIComponent(btn.getAttribute('data-coef-val'));
+    });
+    const r=await fetch(url,{headers:authHeaders()});
+    const d=await safeJson(r);
+    if(!r.ok){
+      box.innerHTML='<div style="font-size:12px;color:var(--red)">⚠️ Estimation indisponible ('+(d&&d.error?d.error:'code '+r.status)+')</div>';
+      return;
+    }
+    if(d.prix_min===null||d.prix_min===undefined){
+      box.innerHTML='<div style="font-size:12px;color:var(--gray);font-style:italic">💡 '+(d.message||'Complétez les informations ci-dessus pour voir une estimation de prix')+'</div>';
+      return;
+    }
+    box.innerHTML='<div style="background:var(--light);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--p);font-weight:600">💡 Prix estimé : '+d.prix_min+'€ – '+d.prix_max+'€'+
+      (d.base_sur_donnees_reelles?'':' <span style="font-weight:400;color:var(--gray)">(estimation indicative)</span>')+'</div>';
+  }catch(e){
+    box.innerHTML='<div style="font-size:12px;color:var(--red)">⚠️ Estimation indisponible ('+friendlyNetworkError(e)+')</div>';
+  }
+}
+
+function voitureForm(){return'<div class="modal-title">🚗 Nettoyage voiture</div><div class="modal-sub">Choisissez le type de nettoyage</div>'+
+  '<div class="field-group"><label>Type de nettoyage</label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="net-type" data-coef-key="portee" data-coef-val="interieur" onclick="selOpt(this)"><span>🪑</span>Intérieur</button>'+
+  '<button class="opt-btn" data-group="net-type" data-coef-key="portee" data-coef-val="exterieur" onclick="selOpt(this)"><span>✨</span>Extérieur</button>'+
+  '<button class="opt-btn full" data-group="net-type" data-coef-key="portee" data-coef-val="complet" onclick="selOpt(this)"><span>🔄</span>Intérieur + Extérieur</button></div></div>'+
+  '<div class="field-group"><label>Type de véhicule <span class="optional">(optionnel)</span></label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="veh" data-coef-key="taille" data-coef-val="citadine" onclick="selOpt(this)"><span>🚗</span>Citadine</button>'+
+  '<button class="opt-btn" data-group="veh" data-coef-key="taille" data-coef-val="suv_4x4" onclick="selOpt(this)"><span>🚙</span>SUV/4x4</button>'+
+  '<button class="opt-btn" data-group="veh" data-coef-key="taille" data-coef-val="monospace" onclick="selOpt(this)"><span>🚐</span>Monospace</button>'+
+  '<button class="opt-btn" data-group="veh" data-coef-key="taille" data-coef-val="utilitaire" onclick="selOpt(this)"><span>🚌</span>Utilitaire</button></div></div>'+
+  '<div class="field-group"><label>Nombre de places <span class="optional">(optionnel)</span></label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="seats" data-coef-key="places" data-coef-val="A" onclick="selOpt(this)">2 places</button>'+
+  '<button class="opt-btn" data-group="seats" data-coef-key="places" data-coef-val="B" onclick="selOpt(this)">5 places</button>'+
+  '<button class="opt-btn" data-group="seats" data-coef-key="places" data-coef-val="C" onclick="selOpt(this)">7 places</button>'+
+  '<button class="opt-btn" data-group="seats" data-coef-key="places" data-coef-val="D" onclick="selOpt(this)">9+ places</button></div></div>'+
+  etatBlock()+descBlock('Ex: Sièges tachés, odeur...')+dateTimeBlock(isLastInFlow())+sendBtn('voiture')}
+
+function canapeForm(){return'<div class="modal-title">🛋️ Nettoyage canapé</div><div class="modal-sub">Type de canapé</div>'+
+  '<div class="field-group"><label>Type</label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="can-type" data-coef-key="forme" data-coef-val="droit" onclick="selOpt(this)"><span>➡️</span>Droit</button>'+
+  '<button class="opt-btn" data-group="can-type" data-coef-key="forme" data-coef-val="angle" onclick="selOpt(this)"><span>📐</span>Angle</button>'+
+  '<button class="opt-btn" data-group="can-type" data-coef-key="forme" data-coef-val="canape_lit" onclick="selOpt(this)"><span>🪑</span>Canapé lit</button>'+
+  '<button class="opt-btn" data-group="can-type" data-coef-key="forme" data-coef-val="chauffeuses" onclick="selOpt(this)"><span>🪑</span>Chauffeuses</button></div></div>'+
+  '<div class="field-group"><label>Nombre de places</label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="can-pl" data-coef-key="taille" data-coef-val="A" onclick="selOpt(this)">2 places</button>'+
+  '<button class="opt-btn" data-group="can-pl" data-coef-key="taille" data-coef-val="B" onclick="selOpt(this)">3 places</button>'+
+  '<button class="opt-btn" data-group="can-pl" data-coef-key="taille" data-coef-val="C" onclick="selOpt(this)">4 places</button>'+
+  '<button class="opt-btn" data-group="can-pl" data-coef-key="taille" data-coef-val="D" onclick="selOpt(this)">5+ places</button></div></div>'+
+  '<div class="field-group"><label>Matière <span class="optional">(optionnel)</span></label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="can-mat" data-coef-key="matiere" data-coef-val="tissu" onclick="selOpt(this)">Tissu</button>'+
+  '<button class="opt-btn" data-group="can-mat" data-coef-key="matiere" data-coef-val="cuir" onclick="selOpt(this)">Cuir</button>'+
+  '<button class="opt-btn" data-group="can-mat" data-coef-key="matiere" data-coef-val="velours" onclick="selOpt(this)">Velours</button>'+
+  '<button class="opt-btn" data-group="can-mat" data-coef-key="matiere" data-coef-val="microfibre" onclick="selOpt(this)">Microfibre</button></div></div>'+
+  etatBlock()+descBlock('Ex: Taches de café...')+dateTimeBlock(isLastInFlow())+sendBtn('canape')}
+
+function matelasForm(){return'<div class="modal-title">🛏️ Nettoyage matelas</div><div class="modal-sub">Dimensions</div>'+
+  '<div class="field-group"><label>Taille</label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="mat-t" data-coef-key="taille" data-coef-val="A" onclick="selOpt(this)">90x190 cm</button>'+
+  '<button class="opt-btn" data-group="mat-t" data-coef-key="taille" data-coef-val="B" onclick="selOpt(this)">140x190 cm</button>'+
+  '<button class="opt-btn" data-group="mat-t" data-coef-key="taille" data-coef-val="C" onclick="selOpt(this)">160x200 cm</button>'+
+  '<button class="opt-btn" data-group="mat-t" data-coef-key="taille" data-coef-val="D" onclick="selOpt(this)">180x200 cm</button></div></div>'+
+  quantiteBlock('Nombre exact de matelas','Ex: 2')+
+  etatBlock()+descBlock('Ex: Taches, acariens...')+dateTimeBlock(isLastInFlow())+sendBtn('matelas')}
+
+function terrasseForm(){return'<div class="modal-title">☀️ Nettoyage terrasse</div><div class="modal-sub">Surface et sol</div>'+
+  '<div class="field-group"><label>Surface</label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="ter-s" data-coef-key="taille" data-coef-val="A" onclick="selOpt(this)">Moins de 20 m²</button>'+
+  '<button class="opt-btn" data-group="ter-s" data-coef-key="taille" data-coef-val="B" onclick="selOpt(this)">20 à 50 m²</button>'+
+  '<button class="opt-btn" data-group="ter-s" data-coef-key="taille" data-coef-val="C" onclick="selOpt(this)">50 à 100 m²</button>'+
+  '<button class="opt-btn" data-group="ter-s" data-coef-key="taille" data-coef-val="D" onclick="selOpt(this)">Plus de 100 m²</button></div></div>'+
+  '<div class="field-group"><label>Type de sol <span class="optional">(optionnel)</span></label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="ter-sol" data-coef-key="matiere" data-coef-val="carrelage" onclick="selOpt(this)">Carrelage</button>'+
+  '<button class="opt-btn" data-group="ter-sol" data-coef-key="matiere" data-coef-val="bois_composite" onclick="selOpt(this)">Bois/composite</button>'+
+  '<button class="opt-btn" data-group="ter-sol" data-coef-key="matiere" data-coef-val="beton" onclick="selOpt(this)">Béton</button>'+
+  '<button class="opt-btn" data-group="ter-sol" data-coef-key="matiere" data-coef-val="pierre_naturelle" onclick="selOpt(this)">Pierre naturelle</button></div></div>'+
+  etatBlock()+descBlock('Ex: Mousse verte...')+dateTimeBlock(isLastInFlow())+sendBtn('terrasse')}
+
+function piscineForm(){return'<div class="modal-title">💧 Nettoyage piscine</div><div class="modal-sub">Quel type d\'intervention souhaitez-vous ?</div>'+
+  '<div class="field-group"><label>Type d\'intervention</label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="pisc-int" data-coef-key="intervention" data-coef-val="entretien" onclick="selOpt(this)">Entretien simple<br><span style="font-weight:400;font-size:11px">(pH, skimmer, contrôle)</span></button>'+
+  '<button class="opt-btn" data-group="pisc-int" data-coef-key="intervention" data-coef-val="complet" onclick="selOpt(this)">Nettoyage complet<br><span style="font-weight:400;font-size:11px">(parois, fond, filtre)</span></button>'+
+  '<button class="opt-btn full" data-group="pisc-int" data-coef-key="intervention" data-coef-val="eau_verte" onclick="selOpt(this)">Eau verte / remise en état</button></div></div>'+
+  '<div class="field-group"><label>Type de bassin <span class="optional">(optionnel)</span></label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="pisc-t" data-coef-key="type_bassin" data-coef-val="enterree" onclick="selOpt(this)"><span>🏊</span>Enterrée</button>'+
+  '<button class="opt-btn" data-group="pisc-t" data-coef-key="type_bassin" data-coef-val="hors_sol" onclick="selOpt(this)"><span>🏖️</span>Hors-sol</button>'+
+  '<button class="opt-btn" data-group="pisc-t" data-coef-key="type_bassin" data-coef-val="semi_enterree" onclick="selOpt(this)"><span>🌊</span>Semi-enterrée</button>'+
+  '<button class="opt-btn" data-group="pisc-t" data-coef-key="type_bassin" data-coef-val="spa_jacuzzi" onclick="selOpt(this)"><span>🛁</span>Spa/Jacuzzi</button></div></div>'+
+  '<div class="field-group"><label>Surface <span class="optional">(optionnel)</span></label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="pisc-s" data-coef-key="taille" data-coef-val="A" onclick="selOpt(this)">Moins de 25 m²</button>'+
+  '<button class="opt-btn" data-group="pisc-s" data-coef-key="taille" data-coef-val="B" onclick="selOpt(this)">25 à 50 m²</button>'+
+  '<button class="opt-btn" data-group="pisc-s" data-coef-key="taille" data-coef-val="C" onclick="selOpt(this)">50 à 80 m²</button>'+
+  '<button class="opt-btn" data-group="pisc-s" data-coef-key="taille" data-coef-val="D" onclick="selOpt(this)">Plus de 80 m²</button></div></div>'+
+  etatBlock()+descBlock('Ex: Eau verte...')+dateTimeBlock(isLastInFlow())+sendBtn('piscine')}
+
+function toitureForm(){return'<div class="modal-title">🏠 Nettoyage toiture</div><div class="modal-sub">Démoussage et traitement</div>'+
+  '<div class="field-group"><label>Type de toiture</label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="toit-t" data-coef-key="matiere" data-coef-val="tuiles" onclick="selOpt(this)">Tuiles</button>'+
+  '<button class="opt-btn" data-group="toit-t" data-coef-key="matiere" data-coef-val="ardoises" onclick="selOpt(this)">Ardoises</button>'+
+  '<button class="opt-btn" data-group="toit-t" data-coef-key="matiere" data-coef-val="fibrociment" onclick="selOpt(this)">Fibrociment</button>'+
+  '<button class="opt-btn" data-group="toit-t" data-coef-key="matiere" data-coef-val="zinc_metal" onclick="selOpt(this)">Zinc/Métal</button></div></div>'+
+  '<div class="field-group"><label>Surface <span class="optional">(optionnel)</span></label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="toit-s" data-coef-key="taille" data-coef-val="A" onclick="selOpt(this)">Moins de 50 m²</button>'+
+  '<button class="opt-btn" data-group="toit-s" data-coef-key="taille" data-coef-val="B" onclick="selOpt(this)">50 à 100 m²</button>'+
+  '<button class="opt-btn" data-group="toit-s" data-coef-key="taille" data-coef-val="C" onclick="selOpt(this)">100 à 200 m²</button>'+
+  '<button class="opt-btn" data-group="toit-s" data-coef-key="taille" data-coef-val="D" onclick="selOpt(this)">Plus de 200 m²</button></div></div>'+
+  etatBlock()+descBlock('Ex: Mousse importante...')+dateTimeBlock(isLastInFlow())+sendBtn('toiture')}
+
+function vitresForm(){return'<div class="modal-title">🪟 Nettoyage vitres</div><div class="modal-sub">Type de bien</div>'+
+  '<div class="field-group"><label>Type de bien</label><div class="options-grid">'+
+  '<button class="opt-btn" data-group="vitr-b" data-coef-key="type_bien" data-coef-val="maison" onclick="selOpt(this)">🏠 Maison</button>'+
+  '<button class="opt-btn" data-group="vitr-b" data-coef-key="type_bien" data-coef-val="appartement" onclick="selOpt(this)">🏢 Appartement</button>'+
+  '<button class="opt-btn" data-group="vitr-b" data-coef-key="type_bien" data-coef-val="commerce" onclick="selOpt(this)">🏪 Commerce</button>'+
+  '<button class="opt-btn" data-group="vitr-b" data-coef-key="type_bien" data-coef-val="bureaux" onclick="selOpt(this)">🏭 Bureaux</button></div></div>'+
+  quantiteBlock('Nombre exact de vitres à nettoyer','Ex: 10')+
+  etatBlock()+descBlock('Ex: Velux, double vitrage...')+dateTimeBlock(isLastInFlow())+sendBtn('vitres')}
+
+function autreForm(){return'<div class="modal-title">➕ Autre prestation</div><div class="modal-sub">Décrivez votre besoin</div>'+
+  '<div class="field-group"><label>De quoi s\'agit-il ?</label><input type="text" id="f-autre-type" placeholder="Ex: Bateau, jacuzzi..."></div>'+
+  '<div class="field-group"><label>Décrivez votre besoin</label><textarea id="f-desc" rows="4" placeholder="Taille, état actuel..." style="resize:none"></textarea></div>'+
+  dateTimeBlock(isLastInFlow())+sendBtn('autre')}
+
+function selOpt(btn){var group=btn.getAttribute('data-group');document.querySelectorAll('[data-group="'+group+'"]').forEach(function(b){b.classList.remove('sel')});btn.classList.add('sel');if(group==='etat'||btn.hasAttribute('data-coef-key'))updateEstimation()}
+function selFlex(btn){document.querySelectorAll('.flex-opt').forEach(function(b){b.classList.remove('sel')});btn.classList.add('sel')}
+
+async function handlePhotos(input){
+  var files=Array.from(input.files||[]);
+  input.value='';
+  if(!files.length)return;
+  var remaining=5-photos.length;
+  if(remaining<=0){toast('Maximum 5 photos par demande.');return}
+  var toProcess=files.slice(0,remaining);
+  if(files.length>remaining)toast('Seules les '+remaining+' premières photos ont été ajoutées (max 5 au total).');
+  var progressEl=document.getElementById('upload-progress');
+  if(progressEl)progressEl.classList.add('show');
+  for(var i=0;i<toProcess.length;i++){
+    var f=toProcess[i];
+    if(!f.type||f.type.indexOf('image/')!==0){toast('"'+f.name+'" n\'est pas une image valide, ignorée.');continue}
+    try{
+      var dataUrl=await compressImage(f,1280,0.72);
+      photos.push(dataUrl);
+      renderPhotoInput();
+    }catch(e){
+      toast('Impossible de traiter la photo "'+f.name+'".');
+    }
+  }
+  if(progressEl)progressEl.classList.remove('show');
+}
+function renderPhotoInput(){var c=document.getElementById('photo-previews');if(!c)return;c.innerHTML='';photos.forEach(function(src,i){var div=document.createElement('div');div.className='photo-preview';var img=document.createElement('img');img.src=src;var btn=document.createElement('button');btn.className='del-photo';btn.type='button';btn.textContent='×';btn.onclick=function(){photos.splice(i,1);renderPhotoInput()};div.appendChild(img);div.appendChild(btn);c.appendChild(div)})}
+
+async function sendDemand(type){
+  var desc=document.getElementById('f-desc')&&document.getElementById('f-desc').value.trim()||'';
+  var details={};
+  document.querySelectorAll('.opt-btn.sel').forEach(function(b){var group=b.getAttribute('data-group');if(group)details[group]=b.textContent.trim()});
+  if(type==='autre'){var t=document.getElementById('f-autre-type')&&document.getElementById('f-autre-type').value.trim();if(t)details['type-prestation']=t}
+  if(UNIT_CATEGORIES_CLIENT.indexOf(type)>=0){
+    var qEl=document.getElementById('f-quantite');
+    if(qEl&&qEl.value.trim())details['quantite']=qEl.value.trim();
+  }
+
+  if(multiFlow.active&&multiFlow.current<multiFlow.queue.length-1){
+    multiFlow.results[multiFlow.current]={type:type,description:desc,details:details};
+    multiFlow.current++;
+    openServiceForm(multiFlow.queue[multiFlow.current]);
+    if(multiFlow.results[multiFlow.current]){setTimeout(function(){prefillModifyForm(multiFlow.results[multiFlow.current])},50)}
+    else if(multiFlow.editMode&&multiFlow.editData&&multiFlow.editData[multiFlow.current]){setTimeout(function(){prefillModifyForm(multiFlow.editData[multiFlow.current])},50)}
+    return;
+  }
+
+  var addr=document.getElementById('f-addr')&&document.getElementById('f-addr').value.trim()||'';
+  var date=document.getElementById('f-date')&&document.getElementById('f-date').value||'';
+  var time=document.getElementById('f-time')&&document.getElementById('f-time').value||'';
+  if(!addr){toast('Veuillez indiquer une adresse.');return}
+  var flex=document.querySelector('.flex-opt.sel')&&document.querySelector('.flex-opt.sel').textContent||'Heure exacte';
+
+  var prestations;
+  if(multiFlow.active){multiFlow.results[multiFlow.current]={type:type,description:desc,details:details};prestations=multiFlow.results}
+  else{prestations=[{type:type,description:desc,details:details}]}
+
+  var btn=document.getElementById('send-demand-btn');
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span>'}
+  try{
+    var isEdit=multiFlow.editMode&&multiFlow.editId;
+    var url=isEdit?API+'/api/demandes/'+multiFlow.editId:API+'/api/demandes';
+    var method=isEdit?'PATCH':'POST';
+    const r=await fetch(url,{method:method,headers:authHeaders(),body:JSON.stringify({prestations:prestations,address:addr,date:date,time:time,flexibility:flex,photos:photos.slice(0,5)})});
+    const d=await safeJson(r);
+    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn){btn.disabled=false;btn.textContent='✨ Envoyer ma demande'}return}
+    document.getElementById('modal-overlay').classList.remove('open');
+    photos=[];selectedServices=[];
+    var wasEdit=isEdit,editedId=multiFlow.editId;
+    multiFlow={active:false,queue:[],current:0,results:[]};
+    document.querySelectorAll('.svc-card').forEach(function(c){c.classList.remove('selected')});
+    var cbtn=document.getElementById('continue-svc-btn');if(cbtn)cbtn.style.display='none';
+    if(wasEdit){toast('✅ Demande modifiée !');openDetail(editedId)}
+    else{show('s-success')}
+    loadDemandes();
+  }catch(e){toast(friendlyNetworkError(e));if(btn){btn.disabled=false;btn.textContent='✨ Envoyer ma demande'}}
+}
+
+// ── INIT ──
+var tok=localStorage.getItem('gleam_token');
+if(tok){
+  fetch(API+'/api/auth/me',{headers:{'Authorization':'Bearer '+tok}})
+    .then(function(r){return r.ok?safeJson(r):null})
+    .then(function(u){if(u&&u.id){currentUser=u;enterApp()}else localStorage.removeItem('gleam_token')})
+    .catch(function(){});
+}
+</script>
+</body>
+</html>

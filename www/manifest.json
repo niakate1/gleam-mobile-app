@@ -2,20 +2,19 @@
   "name": "Gleam — Le nettoyage, brillamment simple",
   "short_name": "Gleam",
   "description": "Trouvez un prestataire de nettoyage vérifié près de chez vous. Décrivez votre besoin, comparez les devis, payez en ligne en toute sécurité.",
-
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-
-  "background_color": "#4B2FBF",
-  "theme_color": "#4B2FBF",
-
+  "background_color": "#241466",
+  "theme_color": "#241466",
   "lang": "fr",
   "dir": "ltr",
-
-  "categories": ["business", "lifestyle", "productivity"],
-
+  "categories": [
+    "business",
+    "lifestyle",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/icon-192.png",

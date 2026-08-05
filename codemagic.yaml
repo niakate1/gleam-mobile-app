@@ -1,26 +1,190 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# GLEAM — compilation iOS et Android dans le nuage
+#
+# Ce fichier remplace Xcode et Android Studio. Codemagic exécute ces étapes sur
+# ses propres machines, qui tournent sous les dernières versions des deux
+# outils, puis envoie le résultat à TestFlight et au Play Store.
+#
+# Votre Mac n'a rien à compiler. Il lui suffit d'envoyer le code sur GitHub.
+#
+# POINT IMPORTANT
+# Ce fichier fonctionne dans les deux cas de figure :
+#
+#   · le dossier ios/ ou android/ est déjà dans le dépôt  → il est réutilisé
+#   · il est absent                                       → il est créé ici
+#
+# Votre dépôt contient déjà ios/. Il sera donc réutilisé tel quel, et seule la
+# synchronisation des fichiers web s'exécutera. C'est le comportement souhaité :
+# un projet natif versionné conserve vos réglages d'un build à l'autre.
+# ═══════════════════════════════════════════════════════════════════════════
+
 workflows:
-  ios-workflow:
-    name: iOS Workflow
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # ANDROID — commencez par celui-ci
+  #
+  # Il ne demande ni certificat Apple ni compte à 99 €. Si quelque chose cloche
+  # dans la configuration, vous le découvrirez ici, à moindres frais.
+  # ─────────────────────────────────────────────────────────────────────────
+  android:
+    name: Gleam Android
+    max_build_duration: 45
+    instance_type: linux_x2          # moins cher qu'une machine macOS, et suffisant
+
+    environment:
+      node: 22                       # Capacitor 8 exige Node 22 ou plus récent
+      java: 21                       # imposé par les versions récentes de Gradle
+      groups:
+        - google_play                # à créer dans Codemagic — voir le guide
+      vars:
+        PACKAGE_NAME: "fr.gleamapp.gleam"
+
+    scripts:
+      - name: Vérifier le dossier web
+        script: |
+          # capacitor.config.json désigne un dossier — ici « www ». S'il est
+          # absent ou vide, la compilation aboutit quand même et produit une
+          # application blanche. Mieux vaut échouer tout de suite, avec un
+          # message clair.
+          DOSSIER=$(node -p "require('./capacitor.config.json').webDir")
+          if [ ! -f "$DOSSIER/index.html" ]; then
+            echo "ERREUR : $DOSSIER/index.html est introuvable."
+            echo "Vérifiez que index.html se trouve bien dans le dossier $DOSSIER."
+            exit 1
+          fi
+          echo "Trouvé : $DOSSIER/index.html ($(wc -c < "$DOSSIER/index.html") octets)"
+
+      - name: Installer les dépendances
+        script: npm ci
+
+      - name: Créer le projet Android
+        script: |
+          # `cap add` échoue si le dossier existe déjà : on ne l'appelle que
+          # lorsqu'il manque, pour que le fichier reste valable si vous
+          # décidez un jour de versionner le dossier.
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Compiler
+        script: |
+          cd android
+          # Un bundle (.aab), pas un APK : c'est ce que le Play Store exige
+          # depuis 2021 pour les nouvelles applications.
+          ./gradlew bundleRelease
+
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+      - android/app/build/outputs/**/mapping.txt
+
+    publishing:
+      email:
+        recipients:
+          - VOTRE-EMAIL@exemple.fr     # remplacez par votre adresse
+        notify:
+          success: true
+          failure: true
+      # Décommentez quand votre compte Play Console est prêt et que la clé de
+      # service est enregistrée dans Codemagic.
+      # google_play:
+      #   credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal            # canal de test interne, invisible du public
+      #   submit_as_draft: true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # iOS — une fois qu'Android fonctionne
+  #
+  # Cette machine est une vraie machine macOS avec Xcode 26. C'est elle qui
+  # remplace le Mac que vous n'avez pas.
+  # ─────────────────────────────────────────────────────────────────────────
+  ios:
+    name: Gleam iOS
     max_build_duration: 60
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: cle_api_gleam   # nom de la clé enregistrée dans Codemagic
+
     environment:
-      node: 18
+      node: 22
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: fr.gleamapp.gleam
+      vars:
+        BUNDLE_ID: "fr.gleamapp.gleam"
+        APP_STORE_APPLE_ID: 0000000000    # identifiant de l'app, donné par App Store Connect
+
     scripts:
-      - name: Install npm dependencies
+      - name: Vérifier le dossier web
         script: |
-          npm install
-      - name: Sync Capacitor (copie www vers le projet iOS)
+          DOSSIER=$(node -p "require('./capacitor.config.json').webDir")
+          if [ ! -f "$DOSSIER/index.html" ]; then
+            echo "ERREUR : $DOSSIER/index.html est introuvable."
+            exit 1
+          fi
+          echo "Trouvé : $DOSSIER/index.html ($(wc -c < "$DOSSIER/index.html") octets)"
+
+      - name: Installer les dépendances
+        script: npm ci
+
+      - name: Créer le projet iOS
         script: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
           npx cap sync ios
-      - name: Install CocoaPods dependencies
+
+      - name: Autorisations Info.plist
         script: |
-          cd ios/App && pod install
-      - name: Build for iOS Simulator (test de compilation, sans signature Apple)
+          # iOS refuse SILENCIEUSEMENT l'accès à l'appareil photo si le texte
+          # d'explication manque : l'application paraît simplement cassée, sans
+          # message ni erreur. On les inscrit ici plutôt que de compter sur une
+          # modification manuelle qu'un `cap add` écraserait.
+          PLIST="ios/App/App/Info.plist"
+          ajouter() {
+            /usr/libexec/PlistBuddy -c "Add :$1 string '$2'" "$PLIST" 2>/dev/null \
+              || /usr/libexec/PlistBuddy -c "Set :$1 '$2'" "$PLIST"
+          }
+          ajouter NSCameraUsageDescription "Gleam utilise l'appareil photo pour vos photos de prestation et vos justificatifs."
+          ajouter NSPhotoLibraryUsageDescription "Gleam accède à vos photos pour joindre des images à vos demandes."
+          ajouter NSPhotoLibraryAddUsageDescription "Gleam enregistre les photos de vos prestations dans votre photothèque."
+          ajouter NSLocationWhenInUseUsageDescription "Gleam utilise votre position pour trouver les prestataires proches de chez vous."
+
+      - name: Préparer la signature
         script: |
-          xcodebuild build \
-            -workspace ios/App/App.xcworkspace \
-            -scheme App \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator'
+          xcode-project use-profiles
+
+      - name: Compiler
+        script: |
+          # Le numéro de version s'incrémente tout seul : deux envois avec le
+          # même numéro sont refusés par App Store Connect, et c'est le premier
+          # échec que rencontrent la plupart des gens.
+          NUMERO=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0) + 1))
+          cd ios/App
+          agvtool new-version -all "$NUMERO"
+          cd -
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
+
     artifacts:
+      - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      email:
+        recipients:
+          - VOTRE-EMAIL@exemple.fr
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # On s'arrête à TestFlight. La soumission à la revue se fait à la main,
+        # depuis App Store Connect, une fois que vous avez essayé l'application
+        # sur votre iPhone. Automatiser cette dernière étape ferait partir des
+        # versions que personne n'a ouvertes.
+        submit_to_app_store: false

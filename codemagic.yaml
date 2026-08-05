@@ -29,7 +29,11 @@ workflows:
   android:
     name: Gleam Android
     max_build_duration: 45
-    instance_type: mac_mini_m2         # moins cher qu'une machine macOS, et suffisant
+    # mac_mini_m2 et non linux_x2 : l'offre gratuite de Codemagic ne donne accès
+    # qu'aux machines macOS. Une machine Linux serait moins chère en minutes,
+    # mais elle demande une offre payante — et un build Android tourne
+    # parfaitement sur macOS, simplement un peu plus lentement.
+    instance_type: mac_mini_m2
 
     environment:
       node: 22                       # Capacitor 8 exige Node 22 ou plus récent
@@ -55,7 +59,24 @@ workflows:
           echo "Trouvé : $DOSSIER/index.html ($(wc -c < "$DOSSIER/index.html") octets)"
 
       - name: Installer les dépendances
-        script: npm ci
+        script: |
+          # npm install et non npm ci : « npm ci » EXIGE un package-lock.json,
+          # or vous venez de le supprimer — à juste titre, il décrivait l'ancien
+          # package.json. « npm install » fonctionne avec ou sans, et régénère
+          # le fichier au passage.
+          #
+          # Ce que l'on perd : npm ci garantit des versions strictement
+          # identiques d'une compilation à l'autre. npm install peut prendre un
+          # correctif plus récent. À ce stade c'est sans conséquence, et vous
+          # pourrez repasser à npm ci une fois le lock régénéré et versionné.
+          npm install
+          # Sans plugins installés, l'application compile mais le pont natif
+          # reste inerte — et c'est un motif de refus au titre de la règle 4.2.
+          NB=$(ls node_modules/@capacitor 2>/dev/null | wc -l)
+          echo "Plugins Capacitor installés : $NB"
+          if [ "$NB" -lt 5 ]; then
+            echo "AVERTISSEMENT : moins de 5 plugins Capacitor."
+          fi
 
       - name: Créer le projet Android
         script: |
@@ -92,6 +113,87 @@ workflows:
       #   track: internal            # canal de test interne, invisible du public
       #   submit_as_draft: true
 
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # iOS SIMULATEUR — vérifier que ça compile, sans rien signer
+  #
+  # Ce flux existait déjà dans votre configuration, et c'était une bonne idée :
+  # il compile pour le simulateur, donc SANS certificat Apple ni compte à 99 €.
+  # Il ne produit pas d'application installable, mais il répond à la seule
+  # question qui compte au début : « est-ce que ça compile ? »
+  #
+  # Je le garde, en y ajoutant les vérifications qui manquaient. Utilisez-le
+  # à chaque modification : cinq minutes, gratuit, et il attrape la plupart
+  # des erreurs avant qu'elles ne coûtent une compilation complète.
+  # ─────────────────────────────────────────────────────────────────────────
+  ios-simulateur:
+    name: Gleam iOS — test de compilation
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+
+    environment:
+      node: 22
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Vérifier le dossier web
+        script: |
+          DOSSIER=$(node -p "require('./capacitor.config.json').webDir")
+          if [ ! -f "$DOSSIER/index.html" ]; then
+            echo "ERREUR : $DOSSIER/index.html est introuvable."
+            exit 1
+          fi
+          echo "Trouvé : $DOSSIER/index.html ($(wc -c < "$DOSSIER/index.html") octets)"
+
+      - name: Installer les dépendances
+        script: |
+          # npm install et non npm ci : « npm ci » EXIGE un package-lock.json,
+          # or vous venez de le supprimer — à juste titre, il décrivait l'ancien
+          # package.json. « npm install » fonctionne avec ou sans, et régénère
+          # le fichier au passage.
+          #
+          # Ce que l'on perd : npm ci garantit des versions strictement
+          # identiques d'une compilation à l'autre. npm install peut prendre un
+          # correctif plus récent. À ce stade c'est sans conséquence, et vous
+          # pourrez repasser à npm ci une fois le lock régénéré et versionné.
+          npm install
+          # Un contrôle qui aurait tout expliqué plus tôt : sans plugins
+          # installés, l'application compile mais le pont natif reste inerte.
+          NB=$(ls node_modules/@capacitor 2>/dev/null | wc -l)
+          echo "Plugins Capacitor installés : $NB"
+          if [ "$NB" -lt 5 ]; then
+            echo "AVERTISSEMENT : moins de 5 plugins Capacitor."
+            echo "Les notifications, l'appareil photo et la vibration seront inertes."
+          fi
+
+      - name: Synchroniser
+        script: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+          npx cap sync ios
+
+      - name: Compiler pour le simulateur
+        script: |
+          # -sdk iphonesimulator : aucune signature requise. C'est ce qui rend
+          # ce flux utilisable sans compte développeur.
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+    publishing:
+      email:
+        recipients:
+          - VOTRE-EMAIL@exemple.fr
+        notify:
+          success: false      # inutile de notifier un test qui passe
+          failure: true
+
   # ─────────────────────────────────────────────────────────────────────────
   # iOS — une fois qu'Android fonctionne
   #
@@ -127,7 +229,24 @@ workflows:
           echo "Trouvé : $DOSSIER/index.html ($(wc -c < "$DOSSIER/index.html") octets)"
 
       - name: Installer les dépendances
-        script: npm ci
+        script: |
+          # npm install et non npm ci : « npm ci » EXIGE un package-lock.json,
+          # or vous venez de le supprimer — à juste titre, il décrivait l'ancien
+          # package.json. « npm install » fonctionne avec ou sans, et régénère
+          # le fichier au passage.
+          #
+          # Ce que l'on perd : npm ci garantit des versions strictement
+          # identiques d'une compilation à l'autre. npm install peut prendre un
+          # correctif plus récent. À ce stade c'est sans conséquence, et vous
+          # pourrez repasser à npm ci une fois le lock régénéré et versionné.
+          npm install
+          # Sans plugins installés, l'application compile mais le pont natif
+          # reste inerte — et c'est un motif de refus au titre de la règle 4.2.
+          NB=$(ls node_modules/@capacitor 2>/dev/null | wc -l)
+          echo "Plugins Capacitor installés : $NB"
+          if [ "$NB" -lt 5 ]; then
+            echo "AVERTISSEMENT : moins de 5 plugins Capacitor."
+          fi
 
       - name: Créer le projet iOS
         script: |

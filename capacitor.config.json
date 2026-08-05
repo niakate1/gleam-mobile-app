@@ -1,38 +1,36 @@
 {
   "appId": "fr.gleamapp.gleam",
   "appName": "Gleam",
-
   "webDir": "www",
-
   "bundledWebRuntime": false,
-
   "server": {
     "androidScheme": "https",
     "iosScheme": "https"
   },
-
   "ios": {
     "contentInset": "always",
     "limitsNavigationsToAppBoundDomains": true
   },
-
   "android": {
     "allowMixedContent": false
   },
-
   "plugins": {
     "SplashScreen": {
       "launchAutoHide": false,
-      "backgroundColor": "#4B2FBF",
+      "backgroundColor": "#241466",
       "showSpinner": false,
       "androidScaleType": "CENTER_CROP"
     },
     "PushNotifications": {
-      "presentationOptions": ["badge", "sound", "alert"]
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
     },
     "StatusBar": {
       "overlaysWebView": false,
-      "backgroundColor": "#4B2FBF",
+      "backgroundColor": "#241466",
       "style": "LIGHT"
     },
     "Keyboard": {

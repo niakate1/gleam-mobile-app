@@ -29,7 +29,7 @@ workflows:
   android:
     name: Gleam Android
     max_build_duration: 45
-    instance_type: linux_x2          # moins cher qu'une machine macOS, et suffisant
+    instance_type: mac_mini_m2         # moins cher qu'une machine macOS, et suffisant
 
     environment:
       node: 22                       # Capacitor 8 exige Node 22 ou plus récent

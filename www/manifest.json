@@ -6,8 +6,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#241466",
-  "theme_color": "#241466",
+  "background_color": "#062E34",
+  "theme_color": "#062E34",
   "lang": "fr",
   "dir": "ltr",
   "categories": [
@@ -16,6 +16,12 @@
     "productivity"
   ],
   "icons": [
+    {
+      "src": "/gleam-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",

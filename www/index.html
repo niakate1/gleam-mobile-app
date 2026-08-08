@@ -499,14 +499,62 @@ html, body {
 }
 .screen.active { display: flex; }
 
+/* ── LA CARTE DE DISPONIBILITÉ FAISAIT DOUBLON ──────────────────────────────
+   L'en-tête prestataire porte DÉJÀ la disponibilité, sous forme de puce
+   cliquable : « ● Disponible » appelle basculerDisponibiliteDepuisEntete().
+   La carte en dessous offrait exactement la même bascule, pour 136 px — sur un
+   écran de 664 où l'en-tête en prend 74. Un quart de la hauteur avant la
+   première demande, pour un réglage déjà accessible d'un doigt.
+
+   J'avais d'abord tenté de la resserrer : la marge négative que je retirais
+   servait en réalité à remonter la carte, et le contenu commençait 24 px plus
+   BAS qu'avant. Retirer la carte est la seule réponse qui gagne vraiment de la
+   place — et elle supprime un doublon plutôt qu'un ornement. */
+#s-pro-home .home-hero-card { display: none; }
+
+/* ── UN SEUL CONTENEUR QUI DÉFILE ───────────────────────────────────────────
+   Ces zones défilaient elles-mêmes, à l'intérieur de l'écran qui défile déjà.
+   Deux conteneurs imbriqués, donc deux hauteurs à partager : l'en-tête (74 px)
+   et la carte de disponibilité (144 px) restaient figés au-dessus, et la liste
+   des demandes n'avait plus que 406 px sur 664 — dont 74 de remplissage.
+   Il restait de quoi voir deux cartes, et « défiler de quelques centimètres ».
+
+   En rendant ces zones transparentes au défilement, tout remonte à l'écran :
+   la carte de disponibilité s'efface en défilant, l'en-tête reste collé grâce
+   à son `sticky`, et la liste dispose de toute la hauteur. */
+/* ── PLUS RIEN NE SE FAIT ÉCRASER ──────────────────────────────────────────
+   `.screen` est une colonne flexible de hauteur fixe. Ses enfants ont donc
+   `flex-shrink: 1` par défaut : quand leur total dépasse la hauteur, ils se
+   compriment tous pour tenir.
+
+   En passant .home-content à `flex: 0 0 auto`, j'ai retiré ce contenu du
+   partage — et toute la compression s'est reportée sur le bandeau d'accueil,
+   écrasé de 209 px à 50. Son titre « Bonjour » débordait donc en dessous, où
+   la carte blanche le recouvrait : le texte était là, mesurable, invisible.
+
+   Personne ne doit se comprimer. L'écran défile, il n'a pas à faire tenir son
+   contenu dans une hauteur — il n'a qu'à le laisser s'étendre. */
+.screen > * { flex-shrink: 0; }
+
 .home-content, .pro-content, .profile-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: var(--gap-4);
-  padding-bottom: var(--gap-6);
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
+  /* `flex: 1` figeait la hauteur de ces zones à l'espace restant, et leur
+     contenu débordait EN DESSOUS de leur boîte. Le remplissage bas restait
+     alors à l'intérieur d'une boîte qui s'arrêtait bien avant : le bouton
+     « Se déconnecter » se retrouvait 58 px sous la barre, sans que rien ne
+     puisse le remonter.
+     `flex: 0 0 auto` les laisse prendre la hauteur de leur contenu. C'est
+     l'écran qui défile désormais — ces zones n'ont plus à se partager la
+     hauteur, elles n'ont qu'à la déclarer. */
+  flex: 0 0 auto;
+  overflow: visible;
+  /* Les côtés séparément, JAMAIS le raccourci `padding`. Il réinitialise
+     padding-bottom, et écrasait donc la place réservée à la barre du bas
+     déclarée plus haut — le bouton « Se déconnecter » repassait dessous.
+     Une règle plus loin dans la feuille gagne à spécificité égale. */
+  padding-top: var(--gap-4);
+  padding-left: var(--gap-4);
+  padding-right: var(--gap-4);
+  padding-bottom: calc(58px + var(--pad-bas) + var(--gap-4));
 }
 
 .page-header { padding: calc(var(--gap-5) + var(--pad-haut)) var(--gap-4) var(--gap-3); }
@@ -635,27 +683,50 @@ html, body {
 /* En position fixe, la barre RECOUVRE le bas du contenu : le dernier bouton
    d'une liste devenait inatteignable. On réserve sa hauteur — 58 px plus la
    zone de sécurité du téléphone — sur tout écran qui en porte une. */
-/* La compensation porte sur le DERNIER élément avant la barre, quel qu'il
-   soit. Ne viser que les conteneurs de contenu laissait le pied de page légal
-   — « Mentions légales · Confidentialité » — passer dessous : il vit à côté
-   d'eux, pas dedans. */
+/* ── LA PLACE DE LA BARRE SE RÉSERVE SUR L'ÉCRAN, PAS SUR SON CONTENU ───────
+   Je visais jusqu'ici les conteneurs internes — .profile-content, .devis-list,
+   le pied de page. Mais tout ne vit pas dedans : le bouton « Se déconnecter »
+   est posé directement dans l'écran, et il se retrouvait caché de 58 px sous la
+   barre du bas, sur le profil client comme sur celui du prestataire.
+
+   Depuis que l'écran est le conteneur qui défile, c'est LUI qui doit réserver
+   la place. Une seule règle, et plus rien ne peut passer dessous — quel que
+   soit l'endroit où l'élément se trouve dans la page. */
+/* Le repère de version, dans le pied de page légal. Assez lisible pour être
+   photographié, assez discret pour ne pas attirer l'œil. */
+.marque-version {
+  display: block; width: 100%;
+  margin-top: 6px;
+  font-size: 10px; color: var(--border-fort);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+}
+
+/* Le remplissage doit porter sur les CONTENEURS, pas sur l'écran.
+   Depuis que ces zones sont en `overflow: visible`, leur contenu déborde de
+   l'écran — et un débordement ignore le remplissage bas du parent. Le bouton
+   « Se déconnecter » se retrouvait donc sous la barre, de 58 px exactement,
+   alors que l'écran réservait bien ses 74 px.
+
+   On réserve la place à l'intérieur de chaque zone qui déborde, et sur le pied
+   de page légal qui vit à côté d'elles. */
 .screen:has(.bottom-nav) .home-content,
 .screen:has(.bottom-nav) .pro-content,
 .screen:has(.bottom-nav) .profile-content,
 .screen:has(.bottom-nav) .devis-list,
-.screen:has(.bottom-nav) .pied-de-page-legal,
-.screen:has(.bottom-nav) > *:nth-last-child(2) {
+.screen:has(.bottom-nav) .pied-de-page-legal {
   padding-bottom: calc(58px + var(--pad-bas) + var(--gap-4));
 }
-/* :has() n'est pas compris partout. Sans repli, le contenu passerait sous la
-   barre sur les navigateurs anciens — on réserve alors la place au niveau de
-   l'écran lui-même, ce qui est moins fin mais toujours juste. */
 @supports not selector(:has(*)) {
   .home-content, .pro-content, .profile-content, .devis-list,
   .pied-de-page-legal {
     padding-bottom: calc(58px + var(--pad-bas) + var(--gap-4));
   }
 }
+/* :has() n'est pas compris partout. Sans repli, le contenu passerait sous la
+   barre sur les navigateurs anciens — on réserve alors la place au niveau de
+   l'écran lui-même, ce qui est moins fin mais toujours juste. */
+/* L'ancien repli visait les conteneurs internes : il ferait doublon avec la
+   règle ci-dessus, et ajouterait 130 px de vide au bas de chaque écran. */
 
 /* ── LA BARRE DU BAS SE SOULEVAIT ──────────────────────────────────────────
    Elle était en `sticky`, ce qui la colle au bas du CONTENU, pas au bas de
@@ -4105,6 +4176,11 @@ textarea { min-height: 92px; padding-top: 13px; }
          connaissent, invisible pour les autres. -->
     <span aria-hidden="true" onclick="compterAppuisDiagnostic()" class="point-diagnostic">·</span>
     <a onclick="ouvrirPageInterne('confidentialite.html','Confidentialité')">Confidentialité</a>
+    <!-- Repère de version. Sans lui, impossible de savoir si l'écran qu'on
+         regarde vient du fichier qu'on croit avoir déployé — et on cherche
+         pendant des jours un défaut déjà corrigé. Il tient en huit caractères
+         gris clair, personne ne le remarque. -->
+    <span class="marque-version">v26.08.08-7bff77b</span>
   </div>
   <div class="bottom-nav" id="nav-guest-accueil"></div>
 </div>
@@ -4510,6 +4586,11 @@ textarea { min-height: 92px; padding-top: 13px; }
          connaissent, invisible pour les autres. -->
     <span aria-hidden="true" onclick="compterAppuisDiagnostic()" class="point-diagnostic">·</span>
     <a onclick="ouvrirPageInterne('confidentialite.html','Confidentialité')">Confidentialité</a>
+    <!-- Repère de version. Sans lui, impossible de savoir si l'écran qu'on
+         regarde vient du fichier qu'on croit avoir déployé — et on cherche
+         pendant des jours un défaut déjà corrigé. Il tient en huit caractères
+         gris clair, personne ne le remarque. -->
+    <span class="marque-version">v26.08.08-7bff77b</span>
   </div>
   <div class="bottom-nav" id="nav-guest-messages"></div>
 </div>
@@ -4545,6 +4626,11 @@ textarea { min-height: 92px; padding-top: 13px; }
          connaissent, invisible pour les autres. -->
     <span aria-hidden="true" onclick="compterAppuisDiagnostic()" class="point-diagnostic">·</span>
     <a onclick="ouvrirPageInterne('confidentialite.html','Confidentialité')">Confidentialité</a>
+    <!-- Repère de version. Sans lui, impossible de savoir si l'écran qu'on
+         regarde vient du fichier qu'on croit avoir déployé — et on cherche
+         pendant des jours un défaut déjà corrigé. Il tient en huit caractères
+         gris clair, personne ne le remarque. -->
+    <span class="marque-version">v26.08.08-7bff77b</span>
   </div>
   <div class="bottom-nav" id="nav-guest-demandes"></div>
 </div>
@@ -4585,6 +4671,11 @@ textarea { min-height: 92px; padding-top: 13px; }
          connaissent, invisible pour les autres. -->
     <span aria-hidden="true" onclick="compterAppuisDiagnostic()" class="point-diagnostic">·</span>
     <a onclick="ouvrirPageInterne('confidentialite.html','Confidentialité')">Confidentialité</a>
+    <!-- Repère de version. Sans lui, impossible de savoir si l'écran qu'on
+         regarde vient du fichier qu'on croit avoir déployé — et on cherche
+         pendant des jours un défaut déjà corrigé. Il tient en huit caractères
+         gris clair, personne ne le remarque. -->
+    <span class="marque-version">v26.08.08-7bff77b</span>
   </div>
   <div class="bottom-nav" id="nav-guest-profil"></div>
 </div>

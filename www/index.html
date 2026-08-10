@@ -5509,6 +5509,29 @@ let selectedServices=[],multiFlow={active:false,queue:[],current:0,results:[]};
 let stripeInstance=null,cardElement=null,currentPaymentIntent=null,currentDevisId=null;
 let isSubmittingPhotos=false;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LE RETOUR DU NAVIGATEUR
+//
+// Quand on quitte l'application — pour laisser un avis, ouvrir un lien — puis
+// qu'on revient par le bouton « retour », le navigateur restitue la page
+// depuis son cache de session. Le script ne se rejoue PAS : restaurerSession()
+// n'est jamais appelée, et currentUser reste vide.
+//
+// Le jeton, lui, est toujours dans localStorage. L'utilisateur EST connecté,
+// mais l'application l'ignore : elle affiche l'accueil visiteur, ou pire, un
+// écran de profil dont les champs n'ont jamais été remplis.
+//
+// L'événement pageshow le signale : sa propriété `persisted` vaut vrai quand
+// la page vient du cache plutôt que d'un chargement neuf.
+window.addEventListener('pageshow', function(evenement){
+  if (!evenement.persisted) return;        // chargement normal : rien à faire
+  if (currentUser) return;                 // session déjà là : rien à faire
+  var jeton = localStorage.getItem('gleam_token');
+  if (!jeton) return;                      // pas connecté : l'accueil est correct
+  // On rétablit la session comme au démarrage. L'écran suivra.
+  if (typeof restaurerSession === 'function') restaurerSession(jeton);
+});
+
 // Les écrans qui n'ont aucun sens sans session. Le HTML les contient déjà,
 // avec des valeurs de secours — « Utilisateur », « email@exemple.com » — qui
 // ne sont remplacées qu'une fois l'utilisateur connu.
@@ -5524,6 +5547,27 @@ function show(id){
   // page qu'on reconnaît qu'un profil vide qui inquiète.
   if(ECRANS_CONNECTES.indexOf(id)>=0 && !currentUser){
     id = 's-guest';
+  }
+
+  // ── LE PROFIL SE REMPLIT À L'OUVERTURE ────────────────────────────────
+  // Hier, j'ai vidé les valeurs de secours du HTML — « Utilisateur »,
+  // « email@exemple.com » — parce qu'elles s'affichaient quand la session
+  // manquait, et ressemblaient à un compte inconnu.
+  //
+  // Mais ces champs n'étaient remplis QUE par enterApp(), à la connexion. Si
+  // l'on arrive au profil autrement — retour navigateur, restauration de
+  // session, navigation directe —, ils restaient vides. Le nom et l'adresse
+  // du propriétaire du compte, absents.
+  //
+  // On les remplit ici, à chaque ouverture. C'est trois lignes, et cela ne
+  // dépend plus du chemin par lequel on est arrivé.
+  if(currentUser && (id === 's-profile' || id === 's-pro-profile')){
+    var champNom = document.getElementById(id === 's-profile' ? 'profile-name' : 'pro-profile-name');
+    var champMail = document.getElementById(id === 's-profile' ? 'profile-email' : 'pro-profile-email');
+    var nomComplet = ((currentUser.prenom || currentUser.firstName || '') + ' ' +
+                      (currentUser.nom || currentUser.lastName || '')).trim();
+    if(champNom) champNom.textContent = nomComplet || currentUser.email || '';
+    if(champMail) champMail.textContent = currentUser.email || '';
   }
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -5826,7 +5870,7 @@ function majSimulateur(){
   var commission = brut * TAUX_COMMISSION;
   var verse = brut - commission;
 
-  var euros = function(n){ return Math.round(n).toLocaleString('fr-FR') + ' €'; };
+  var euros = formaterEuros;   // une seule règle d'affichage, partout
   var heures = function(h){
     var entier = Math.floor(h), minutes = Math.round((h - entier) * 60);
     return entier + ' h' + (minutes ? String(minutes).padStart(2,'0') : '');
@@ -6304,6 +6348,29 @@ async function safeJson(r){
     return{error:'Erreur serveur (code '+r.status+'). Réessayez dans un instant.'};
   }
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// LE MESSAGE À AFFICHER QUAND UNE REQUÊTE ÉCHOUE
+//
+// Vingt-et-un endroits écrivaient toast('Erreur : ' + (d.error || '')). Quand
+// le serveur ne renvoyait rien d'exploitable — coupure, erreur non prévue —,
+// l'utilisateur lisait « Erreur : » et rien d'autre.
+//
+// Le serveur fournit désormais une référence d'incident pour les erreurs
+// techniques. On la garde : c'est ce que la personne pourra vous citer.
+// ─────────────────────────────────────────────────────────────────────────────
+function messageErreur(reponse, donnees, repli){
+  var d = donnees || {};
+  if (d.error) return d.error;
+  if (reponse) {
+    if (reponse.status === 401) return 'Votre session a expiré. Reconnectez-vous pour continuer.';
+    if (reponse.status === 403) return 'Vous n\'avez pas accès à cette action avec ce compte.';
+    if (reponse.status === 404) return 'Cet élément n\'existe plus. Il a sans doute été supprimé.';
+    if (reponse.status === 429) return 'Trop de tentatives. Patientez une minute avant de réessayer.';
+    if (reponse.status >= 500) return 'Une erreur est survenue de notre côté. Réessayez dans un instant.';
+  }
+  return repli || 'L\'action n\'a pas abouti. Réessayez dans un instant.';
+}
+
 function friendlyNetworkError(e){
   if(e&&e.name==='TypeError')return'Connexion impossible. Vérifiez votre connexion internet et réessayez.';
   return'Erreur réseau. Réessayez dans un instant.';
@@ -6355,7 +6422,7 @@ async function forgotPassword(){
   try{
     const r=await fetch(API+'/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     toast('📧 Si ce compte existe, un code a été envoyé par email.',5000);
     ouvrirNouveauMotDePasse(email);
   }catch(e){toast(friendlyNetworkError(e))}
@@ -6610,7 +6677,7 @@ async function supprimerCompte(){
   try{
     const r=await fetch(API+'/api/users/me/supprimer',{method:'POST',headers:authHeaders()});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     toast('Votre compte a été supprimé.');
     setTimeout(doLogout,1200);
   }catch(e){toast(friendlyNetworkError(e))}
@@ -6644,17 +6711,73 @@ const STATUTS={
 
 // Affiche les détails d'une prestation en ajoutant l'unité claire pour la quantité/surface
 // (ex: "6 m²" plutôt que juste "6"), pour que ce soit toujours compréhensible sans ambiguïté.
+// Les libellés des champs, pour que chaque valeur dise ce qu'elle est.
+//
+// Sans eux, le détail donnait « Carrelage • Propre • 38 m² » — trois valeurs
+// alignées, sans indiquer laquelle est la matière, laquelle l'état, laquelle
+// la surface. Lisible quand on connaît le formulaire, opaque quand on l'a
+// rempli il y a trois jours.
+// ─────────────────────────────────────────────────────────────────────────────
+// LE TAPIS, CHEZ LE CLIENT
+//
+// Le détail générique empilait cinq champs dont trois disaient la même chose :
+//
+//   « Jute / Sisal • Propre • 8 • Synthétique : 1 petit — propre · Coton :
+//     1 petit — propre · Jute / Sisal : 1 moyen — propre • Petit tapis —
+//     quantité : 2, Tapis moyen — quantité : 1 »
+//
+// « Jute / Sisal » deux fois, la quantité sous deux formes, et l'état répété
+// à chaque matière alors qu'il figure déjà en tête.
+//
+// Quand le client a détaillé par matière, cette liste EST le détail : le reste
+// devient du bruit. On l'affiche seule, une ligne par matière.
+// ─────────────────────────────────────────────────────────────────────────────
+function detailTapisClient(details){
+  var d = details || {};
+  if (!d['tapis_par_matiere']) return null;   // une seule matière : rien à faire
+
+  var lignes = String(d['tapis_par_matiere']).split(' \u00b7 ').map(function(v){
+    return '<div style="margin-bottom:2px">• ' + escapeHtml(v.trim()) + '</div>';
+  }).join('');
+
+  // La surface totale reste utile : c'est elle qui sert au prix.
+  var surface = d['quantite']
+    ? '<div style="margin-top:4px"><strong>Surface totale :</strong> ' +
+      escapeHtml(d['quantite']) + ' m²</div>'
+    : '';
+
+  return lignes + surface;
+}
+
+var LIBELLES_CHAMPS = {
+  'terrasse-mat':'Revêtement', 'terr-mat':'Revêtement',
+  'piscine-type':'Type de bassin', 'piscine-taille':'Taille',
+  'toit-mat':'Matériau', 'toit-acces':'Accès',
+  'vitres-type':'Type de bien', 'vitres-etage':'Étage',
+  'etat':'État', 'quantite':'Surface', 'f-quantite':'Quantité',
+  'net-type':'Prestation', 'veh':'Véhicule',
+  'can-pl':'Places', 'can-mat':'Matière', 'can-forme':'Forme',
+  'mat-t':'Taille', 'tapis-mat':'Matière'
+};
+
 function formatDetails(details,type){
   if(!details)return'';
   return Object.entries(details).map(function(entry){
     var key=entry[0],val=entry[1];
+    var libelle=LIBELLES_CHAMPS[key];
+    var texte;
     if(key==='quantite'){
       var unit=UNIT_CATEGORIES_LABELS[type]||'';
-      return escapeHtml(val+(unit?' '+unit:''));
+      texte=escapeHtml(val+(unit?' '+unit:''));
+    }else if(Array.isArray(val)){
+      texte=val.map(function(v){return escapeHtml(v)}).join(', ');
+    }else{
+      texte=escapeHtml(val);
     }
-    if(Array.isArray(val))return val.map(function(v){return escapeHtml(v)}).join(', ');
-    return escapeHtml(val);
-  }).join(' • ');
+    // Une ligne par champ, avec son nom : on lit en diagonale sans deviner.
+    return '<div style="margin-bottom:2px">'+
+      (libelle?'<strong>'+escapeHtml(libelle)+' :</strong> ':'')+texte+'</div>';
+  }).join('');
 }
 // Traduit les valeurs techniques des options en un libellé clair et lisible pour le pro.
 var LABELS_OPTIONS_VOITURE={interieur:'Intérieur',exterieur:'Extérieur',complet:'Intérieur + Extérieur'};
@@ -6785,8 +6908,41 @@ function afficherDetailsVitresPro(p){
 function afficherDetailsTapisPro(p){
   var d=p.details||{};
   var lignes='';
-  if(d['tapis-mat'])lignes+='<div style="margin-bottom:3px"><strong>🧶 Matière :</strong> '+escapeHtml(d['tapis-mat'])+'</div>';
-  if(Array.isArray(d['tapis_estime'])&&d['tapis_estime'].length){
+
+  // ── LE DÉTAIL PAR MATIÈRE ───────────────────────────────────────────────
+  // Quand le client choisit plusieurs matières, il saisit une quantité et un
+  // état POUR CHACUNE. Le formulaire construit alors une phrase complète :
+  //
+  //   « Laine : 1 moyen, 1 grand — très sale · Synthétique : 2 petits — propre »
+  //
+  // Elle était enregistrée sous `tapis_par_matiere`, et le prestataire ne la
+  // lisait jamais. Il voyait « Matière : Jute / Sisal » et une quantité
+  // globale — sans savoir combien de chaque, ni dans quel état.
+  //
+  // Or c'est exactement ce qui détermine son devis : la laine et le synthétique
+  // ne se nettoient ni avec le même produit, ni dans le même temps.
+  if(d['tapis_par_matiere']){
+    lignes+='<div style="margin-bottom:5px"><strong>🧶 Détail par matière :</strong>'+
+      '<ul style="margin:4px 0 2px;padding-left:18px">'+
+      String(d['tapis_par_matiere']).split(' \u00b7 ').map(function(v){
+        return '<li>'+escapeHtml(v)+'</li>';
+      }).join('')+'</ul></div>';
+  }else if(d['tapis-mat']){
+    // Une seule matière : la phrase détaillée n'existe pas, on affiche le nom.
+    lignes+='<div style="margin-bottom:3px"><strong>🧶 Matière :</strong> '+escapeHtml(d['tapis-mat'])+'</div>';
+  }
+  // L'estimation globale ne fait que TOTALISER le détail par matière :
+  //
+  //   par matière   Synthétique : 1 petit · Coton : 1 petit · Jute : 1 moyen
+  //   estimation    Petit tapis — quantité : 2 · Tapis moyen — quantité : 1
+  //
+  // Deux petits et un moyen, dit deux fois. Le second bloc n'apprend rien et
+  // double la hauteur du détail — sur une demande à six prestations, c'est un
+  // écran entier de répétition.
+  //
+  // On ne l'affiche que si le détail par matière est absent : dans ce cas seul,
+  // il porte une information que rien d'autre ne donne.
+  if(!d['tapis_par_matiere']&&Array.isArray(d['tapis_estime'])&&d['tapis_estime'].length){
     lignes+='<div style="margin-bottom:4px"><strong>📐 Tapis (estimation du client) :</strong>'+
       '<ul style="margin:4px 0 2px;padding-left:18px">'+d['tapis_estime'].map(function(v){return '<li>'+escapeHtml(v)+'</li>'}).join('')+'</ul>'+
       '<div style="font-size:10.5px;color:var(--gray);font-style:italic">Taille approximative, pas une mesure exacte — à confirmer sur place.</div></div>';
@@ -6795,14 +6951,19 @@ function afficherDetailsTapisPro(p){
     lignes+='<div style="margin-bottom:4px"><strong>📏 Indiqué par le client (surface exacte) :</strong>'+
       '<ul style="margin:4px 0 2px;padding-left:18px">'+d['tapis_indique_client'].map(function(v){return '<li>'+escapeHtml(v)+'</li>'}).join('')+'</ul></div>';
   }
-  if(d['etat'])lignes+='<div style="margin-bottom:3px"><strong>🧽 État général :</strong> '+escapeHtml(d['etat'])+'</div>';
+  // Même raison pour l'état : chaque ligne du détail par matière se termine
+  // déjà par « — propre », « — très sale ». Le répéter en bas ajoute une ligne
+  // qui contredit parfois le détail, quand les matières sont dans des états
+  // différents.
+  if(d['etat']&&!d['tapis_par_matiere'])
+    lignes+='<div style="margin-bottom:3px"><strong>🧽 État général :</strong> '+escapeHtml(d['etat'])+'</div>';
   return '<div style="font-size:12px;line-height:1.5">'+lignes+'</div>';
 }
 function tryParseNotes(notes){
   try{
     const n=JSON.parse(notes);
     if(n.prestations&&Array.isArray(n.prestations)){
-      return n.prestations.map(function(p){
+      return n.prestations.map(function(p, indicePresta){
         var corps;
         if(p.type==='voiture'&&p.details&&Object.keys(p.details).length){
           corps=afficherDetailsVoiturePro(p);
@@ -6818,7 +6979,27 @@ function tryParseNotes(notes){
           var det=p.details&&Object.keys(p.details).length?formatDetails(p.details,p.type):'';
           corps=(det?'<div style="font-size:12px">'+det+'</div>':'');
         }
-        return '<div style="margin-bottom:8px"><strong style="text-transform:capitalize">'+ICONS_get(p.type)+' '+escapeHtml(p.type)+'</strong>'+(p.description?'<div style="font-size:12px;margin-top:2px">'+escapeHtml(p.description)+'</div>':'')+corps+'</div>';
+        // ── CHAQUE PRESTATION EST UN BLOC DISTINCT ─────────────────────
+        // Sur une demande à quatre prestations, le détail dépasse deux écrans.
+        // Séparées par huit pixels seulement, elles se lisaient comme un seul
+        // texte continu : on ne savait plus où finissait le canapé et où
+        // commençait le matelas.
+        //
+        // Un filet, un fond alterné et un titre plus visible suffisent. Le
+        // numéro d'ordre aide à s'y retrouver quand on fait défiler.
+        var separateur = (indicePresta > 0)
+          ? 'border-top:2px solid var(--border);margin-top:14px;padding-top:14px;'
+          : '';
+        return '<div style="'+separateur+'margin-bottom:8px">'+
+          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
+            '<span style="background:var(--light);color:var(--p);font-size:10.5px;font-weight:800;'+
+              'min-width:18px;height:18px;border-radius:9px;display:inline-flex;'+
+              'align-items:center;justify-content:center">'+(indicePresta+1)+'</span>'+
+            '<strong style="text-transform:capitalize;font-size:13.5px;color:var(--p)">'+
+              ICONS_get(p.type)+' '+escapeHtml(p.type)+'</strong>'+
+          '</div>'+
+          (p.description?'<div style="font-size:12px;margin-top:2px">'+escapeHtml(p.description)+'</div>':'')+
+          corps+'</div>';
       }).join('');
     }
     return escapeHtml(n.description||'');
@@ -6919,7 +7100,7 @@ async function handleProfilePhoto(input,who){
     var dataUrl=await compressImage(file,400,0.8);
     const r=await fetch(API+'/api/users/photo',{method:'PATCH',headers:authHeaders(),body:JSON.stringify({photo:dataUrl})});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||'photo non enregistrée'));return}
+    if(!r.ok){toast(messageErreur(r, d, "La photo n'a pas pu être enregistrée. Réessayez avec une image plus légère."));return}
     if(who==='pro')renderProfileAvatar('pro-profile-avatar-inner',dataUrl,'🏢');
     else renderProfileAvatar('profile-avatar-inner',dataUrl,'👤');
     toast('📸 Photo de profil mise à jour !');
@@ -7411,7 +7592,10 @@ function renderDevisClientCards(){
         // Trois niveaux, dans l'ordre de ce que le client veut faire :
         // accepter est l'action principale, consulter le devis vient avant la
         // décision, et refuser reste discret — c'est une action sans retour.
-        actions='<button class="btn-principal-devis" onclick="accepterDevis(\''+safeVId+'\',this)">'+
+        // Le prix part avec le clic : le paiement s'ouvre juste après l'acceptation,
+      // et lui redemander le montant au serveur ajouterait une attente pour une
+      // information déjà affichée à l'écran.
+      actions='<button class="btn-principal-devis" onclick="accepterDevis(\''+safeVId+'\',this,'+Number(v.prix_ttc||0)+')">'+
             '<i data-lucide="check"></i> Accepter ce devis</button>'+
           '<button class="btn-secondaire-devis" onclick="showDevisDocument(\''+safeVId+'\')">'+
             '<i data-lucide="file-text"></i> Voir le devis détaillé</button>'+
@@ -7450,25 +7634,52 @@ function renderDevisClientCards(){
   c.innerHTML=html;
 }
 
-async function accepterDevis(devisId,btn){
+// Le paiement s'ouvre DANS LA FOULÉE de l'acceptation.
+//
+// Avant : accepter → confirmer → revenir à la liste → retrouver la demande →
+// cliquer « Payer ». Cinq gestes pour une décision déjà prise, et quatre
+// occasions d'abandonner entre l'accord et le paiement.
+//
+// La confirmation annonce désormais les deux conséquences en une fois : les
+// autres devis sont refusés, et le paiement suit. Le client sait ce qu'il
+// engage avant de valider, ce qui est plus honnête qu'un écran de paiement
+// qui surgit sans prévenir.
+async function accepterDevis(devisId,btn,montant){
   if(!await demanderConfirmation({
     titre:'Accepter ce devis',
-    texte:'Les autres devis reçus pour cette prestation seront automatiquement refusés.',
-    valider:'Accepter', icone:'check-circle'
+    texte:'Les autres devis reçus seront automatiquement refusés, et le paiement s\'ouvrira juste après.',
+    valider:'Accepter et payer', icone:'check-circle'
   }))return;
   if(btn){btn.disabled=true;var sib=btn.parentElement&&btn.parentElement.querySelector('.btn-refuse');if(sib)sib.disabled=true}
   try{
     const r=await fetch(API+'/api/devis/'+devisId+'/accepter',{method:'POST',headers:authHeaders()});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn){btn.disabled=false;var sib2=btn.parentElement&&btn.parentElement.querySelector('.btn-refuse');if(sib2)sib2.disabled=false}return}
-    toast('✅ Devis accepté !');loadDevis();loadDemandes();
+    if(!r.ok){toast(messageErreur(r, d));if(btn){btn.disabled=false;var sib2=btn.parentElement&&btn.parentElement.querySelector('.btn-refuse');if(sib2)sib2.disabled=false}return}
+    toast('✅ Devis accepté !');
+    loadDevis();loadDemandes();
+
+    // Le montant vient du bouton lui-même : il l'affiche déjà, inutile de le
+    // redemander au serveur. S'il manque — bouton appelé depuis un autre
+    // écran —, on relit le devis plutôt que d'ouvrir un paiement sans prix.
+    var prix=montant;
+    if(prix==null){
+      try{
+        const rd=await fetch(API+'/api/devis/'+devisId,{headers:authHeaders()});
+        if(rd.ok){const dd=await safeJson(rd);prix=dd&&dd.prix_ttc;}
+      }catch(e){}
+    }
+    if(prix!=null&&typeof openPayment==='function'){
+      // Un court délai laisse le message de confirmation s'afficher : enchaîner
+      // sans respiration donne l'impression d'avoir cliqué sur autre chose.
+      setTimeout(function(){ openPayment(devisId,prix); },600);
+    }
   }catch(e){toast(friendlyNetworkError(e));if(btn)btn.disabled=false}
 }
 async function refuserDevis(devisId,btn){
   if(btn){btn.disabled=true;var sib=btn.parentElement&&btn.parentElement.querySelector('.btn-accept');if(sib)sib.disabled=true}
   try{
     const r=await fetch(API+'/api/devis/'+devisId+'/refuser',{method:'POST',headers:authHeaders()});
-    if(!r.ok){const d=await safeJson(r);toast('Erreur : '+(d.error||''));if(btn){btn.disabled=false;var sib2=btn.parentElement&&btn.parentElement.querySelector('.btn-accept');if(sib2)sib2.disabled=false}return}
+    if(!r.ok){const d=await safeJson(r);toast(messageErreur(r, d));if(btn){btn.disabled=false;var sib2=btn.parentElement&&btn.parentElement.querySelector('.btn-accept');if(sib2)sib2.disabled=false}return}
     toast('❌ Devis refusé.');loadDevis();
   }catch(e){toast(friendlyNetworkError(e));if(btn)btn.disabled=false}
 }
@@ -7517,7 +7728,10 @@ function renderDetail(d){
       '<span class="demand-status '+st[1]+'" style="font-size:13px">'+st[0]+'</span>'+
     '</div>'+
     (prestations.length?prestations.map(function(p){
-      var det=p.details&&Object.keys(p.details).length?formatDetails(p.details,p.type):'';
+      // Le tapis a sa propre présentation quand le client a détaillé par
+      // matière : le format générique le rendait illisible.
+      var det=(p.type==='tapis'&&detailTapisClient(p.details))
+        || (p.details&&Object.keys(p.details).length?formatDetails(p.details,p.type):'');
       return '<div class="detail-presta"><span class="detail-presta-icon">'+ICONS_get(p.type)+'</span>'+
         '<div><div class="detail-presta-name">'+escapeHtml(p.type)+'</div>'+
         (det?'<div class="detail-presta-info">'+det+'</div>':'')+
@@ -7580,7 +7794,7 @@ async function annulerDemandeAcceptee(){
   try{
     const r=await fetch(API+'/api/demandes/'+currentDetailDemande.id+'/annuler-client',{method:'POST',headers:authHeaders()});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     var msg;
     if(d.frais_retenus&&d.rembourse){msg='🚫 Prestation annulée. Remboursé : '+d.montant_rembourse+'€ (frais de '+d.montant_retenu+'€ retenus, annulation tardive).'}
     else if(d.frais_retenus&&!d.rembourse){msg='🚫 Prestation annulée. Aucun remboursement (annulation à moins de 2h du créneau).'}
@@ -7604,7 +7818,7 @@ async function archiverDemande(demandeId){
   try{
     const r=await fetch(API+'/api/demandes/'+cible+'/archiver',{method:'PATCH',headers:authHeaders()});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     toast('📥 Prestation rangée — elle ne s\'affichera plus dans vos listes.');
     // On reste où l'on est : renvoyer sur l'accueil après un rangement fait dans
     // la liste des devis serait déroutant.
@@ -7622,7 +7836,7 @@ async function deleteDemande(){
   try{
     const r=await fetch(API+'/api/demandes/'+currentDetailDemande.id,{method:'DELETE',headers:authHeaders()});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     toast('🗑️ Demande supprimée.');goTab('home');
   }catch(e){toast(friendlyNetworkError(e))}
 }
@@ -7695,7 +7909,7 @@ async function envoyerNote(btn){
   if(btn)btn.disabled=true;
   try{
     const r=await fetch(API+'/api/evaluations',{method:'POST',headers:authHeaders(),body:JSON.stringify({demande_id:noteDemandeId,evalue_id:noteSocieteId,note:noteSelectionnee,commentaire:comment})});
-    if(!r.ok){const d=await safeJson(r);toast('Erreur : '+(d.error||''));if(btn)btn.disabled=false;return}
+    if(!r.ok){const d=await safeJson(r);toast(messageErreur(r, d));if(btn)btn.disabled=false;return}
     document.getElementById('modal-overlay').classList.remove('open');
     toast('⭐ Merci pour votre avis !',4000);
     if(isPro())loadProDevis();else loadDevis();
@@ -7752,6 +7966,20 @@ async function loadProDemandes(silent){
     if(sous)sous.textContent=data.length
       ? (data.length===1?'1 demande vous attend':data.length+' demandes vous attendent')
       : 'Aucune demande disponible pour le moment';
+
+    // ── LE COMPTEUR SUIT LA LISTE, IL NE LA RECALCULE PLUS ────────────────
+    // Le chiffre de l'en-tête venait d'un appel séparé, dans
+    // majEnteteProChiffres(). Deux lectures de la même route, à deux moments
+    // différents — et le sondage périodique ne rafraîchissait que la liste.
+    //
+    // Résultat : une demande arrive, la liste l'affiche, le compteur reste à
+    // zéro. Elle disparaît, la liste se vide, le compteur reste à un. Il
+    // fallait recharger la page pour les réconcilier.
+    //
+    // La liste est ici, déjà comptée. Une seule source, plus de divergence.
+    var chiffreDemandes=document.getElementById('pro-chiffre-demandes');
+    if(chiffreDemandes)chiffreDemandes.textContent=String(data.length);
+
     loadProDevisCount();
     if(!data||!data.length){proDemandesCache=[];renderProDemandesCards();return}
     var changed2=hasDataChanged('proDemandes',data);
@@ -7969,7 +8197,7 @@ async function chargerTableauDeBordPro(){
       return '<div><div class="valeur '+(classe||'')+'">'+valeur+'</div>'+
              '<div class="etiquette">'+etiquette+'</div></div>';
     }
-    var euros=function(n){return (Math.round((n||0)*100)/100).toFixed(2).replace('.',',')+' €'};
+    var euros = formaterEuros;   // une seule règle d'affichage, partout;
 
     // Six cases à zéro ne distinguent pas « vous n'avez pas encore commencé » de
     // « quelque chose est cassé ». Tant qu'aucun devis n'a été envoyé, on explique
@@ -8221,6 +8449,33 @@ async function majEnteteClientChiffres(){
     '<div class="entete-client-chiffre"><b>'+libelleProchaine+'</b><span>prochaine</span></div>';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// L'AFFICHAGE DES MONTANTS
+//
+// Trois fonctions `euros` coexistaient, définies localement dans trois
+// fonctions différentes. Deux arrondissaient à l'euro, une gardait les
+// centimes — d'où « 111 € » dans l'en-tête et « 110,50 € » juste en dessous,
+// pour la même somme.
+//
+// De l'argent s'affiche au centime. Un prestataire qui lit deux chiffres
+// différents pour ce qu'il a gagné ne sait plus lequel croire, et c'est le
+// genre de doute qui fait perdre un compte.
+// ─────────────────────────────────────────────────────────────────────────────
+function formaterEuros(n){
+  var v = parseFloat(n || 0);
+  if (!isFinite(v)) v = 0;
+  // Pas de décimales inutiles : « 85 € » plutôt que « 85,00 € », mais
+  // « 110,50 € » reste entier.
+  var arrondi = Math.round(v * 100) / 100;
+  // toLocaleString gère l'espace des milliers ET la virgule décimale. Écrire
+  // le format à la main donnait « 1234,50 € » au lieu de « 1 234,50 € » — un
+  // détail qui compte le jour où les montants dépassent le millier.
+  return arrondi.toLocaleString('fr-FR', {
+    minimumFractionDigits: Number.isInteger(arrondi) ? 0 : 2,
+    maximumFractionDigits: 2
+  }) + ' €';
+}
+
 async function majEnteteProChiffres(){
   var boite=document.getElementById('pro-chiffres-entete');
   if(!boite||!currentUser||!isPro())return;
@@ -8244,8 +8499,18 @@ async function majEnteteProChiffres(){
     const d=await safeJson(r);
     // On additionne ce qui a été libéré ce mois-ci, pas le cumul : « ce mois »
     // doit vouloir dire ce mois.
+    //
+    // La route renvoie un OBJET — { total_libere, total_en_attente, paiements }
+    // — et non un tableau. Le code lisait `Array.isArray(d) ? d : []`, obtenait
+    // donc toujours un tableau vide, et affichait zéro quels que soient les
+    // versements. Trois paiements réglés et un libéré ne changeaient rien.
+    var listeGains=Array.isArray(d)?d:(d&&Array.isArray(d.paiements)?d.paiements:[]);
     var maintenant=new Date();
-    (Array.isArray(d)?d:[]).forEach(function(p){
+    listeGains.forEach(function(p){
+      // Seul ce qui est réellement acquis compte. Un paiement « paye » attend
+      // encore la validation du client : l'afficher comme un gain donnerait au
+      // prestataire un chiffre qu'il n'a pas touché.
+      if(p.statut!=='libere'&&p.statut!=='rembourse_partiel')return;
       var date=new Date(p.libere_le||p.created_at);
       if(date.getMonth()===maintenant.getMonth()&&date.getFullYear()===maintenant.getFullYear()){
         gains+=parseFloat(p.montant_societe||0);
@@ -8257,8 +8522,12 @@ async function majEnteteProChiffres(){
   var noteAffichee=(note&&parseFloat(note)>0)?parseFloat(note).toFixed(1).replace('.',','):'—';
 
   boite.innerHTML=
-    '<div class="entete-pro-chiffre"><b>'+demandes+'</b><span>demandes</span></div>'+
-    '<div class="entete-pro-chiffre"><b>'+Math.round(gains)+' €</b><span>ce mois</span></div>'+
+    // L'identifiant permet à loadProDemandes de corriger ce chiffre sans
+    // reconstruire les trois tuiles ni relancer un appel réseau.
+    '<div class="entete-pro-chiffre"><b id="pro-chiffre-demandes">'+demandes+'</b><span>demandes</span></div>'+
+    // Même règle que le tableau de bord juste en dessous : au centime.
+    // C'est ici que naissait l'écart — 111 € en haut, 110,50 € plus bas.
+    '<div class="entete-pro-chiffre"><b>'+formaterEuros(gains)+'</b><span>ce mois</span></div>'+
     '<div class="entete-pro-chiffre"><b>'+noteAffichee+'</b><span>note</span></div>';
 }
 
@@ -8549,7 +8818,7 @@ function renderProDevisCards(){
     return v.statut==='accepte'&&v.demande&&v.demande.statut==='terminee';
   });
   var montantGagne=gagnes.reduce(function(t,v){return t+(parseFloat(v.prix_ttc)||0)*(1-TAUX_COMMISSION)},0);
-  var euros=function(n){return Math.round(n).toLocaleString('fr-FR')+' €'};
+  var euros = formaterEuros;   // une seule règle d'affichage, partout;
 
   var recap='<div class="recap-devis">'+
     '<div><div class="valeur attente">'+enAttente.length+'</div><div class="etiquette">En attente de réponse</div></div>'+
@@ -8833,7 +9102,7 @@ async function enregistrerFacturation(){
     const r=await fetch(API+'/api/entreprises/facturation',
       {method:'PATCH',headers:authHeaders(),body:JSON.stringify(corps)});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d&&d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     currentUser.siret=corps.siret;
     currentUser.raison_sociale=corps.raison_sociale;
     currentUser.adresse_facturation=corps.adresse_facturation;
@@ -8899,7 +9168,7 @@ async function enregistrerJustificatifs(){
     const r=await fetch(API+'/api/societes/justificatifs',
       {method:'PATCH',headers:authHeaders(),body:JSON.stringify(corps)});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d&&d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     // On tient currentUser à jour pour que le parcours se rafraîchisse sans rechargement.
     currentUser.siret=corps.siret;
     currentUser.assurance_rc_pro=corps.assurance_rc_pro;
@@ -9172,7 +9441,7 @@ async function deposerDocument(champ){
     const r=await fetch(API+'/api/documents',{method:'POST',headers:authHeaders(),
       body:JSON.stringify({type:type,face:face,fichier:contenu,nom_original:fichier.name,qualite:qualite})});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d&&d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
 
     vibrer('succes');
     toast('Document déposé, il sera vérifié rapidement.');
@@ -9196,23 +9465,41 @@ async function rappelTarifsPro(demandeId, prestation){
   var t=await chargerTarifsPro();
   if(!t){box.innerHTML='';return}
 
-  var base=(t.tarifs||{})[prestation];
-  var unitaire=(t.tarifs_unitaires||{})[prestation];
-  var lignes=[];
+  // `prestation` arrive sous la forme « voiture + canape + tapis » sur une
+  // demande à plusieurs prestations. Aucun tarif ne porte ce nom : le rappel
+  // annonçait donc « aucun tarif enregistré » à un prestataire qui les avait
+  // tous saisis.
+  //
+  // On découpe, et on montre le tarif de CHAQUE prestation demandée. C'est
+  // d'ailleurs plus utile : le devis couvre l'ensemble, autant voir l'ensemble.
+  var types=String(prestation||'').split(' + ').map(function(s){return s.trim()}).filter(Boolean);
+  if(!types.length)types=[prestation];
 
-  if(base&&typeof base==='object'){
-    Object.keys(base).forEach(function(k){
-      var v=parseFloat(base[k]);
-      if(v>0)lignes.push({nom:k.replace(/_/g,' '),prix:Math.round(v)+' €'});
-    });
-  }else if(base&&parseFloat(base)>0){
-    lignes.push({nom:'Forfait',prix:Math.round(parseFloat(base))+' €'});
-  }
-  if(unitaire&&parseFloat(unitaire)>0){
-    // Virgule décimale, comme partout ailleurs dans l'application. Un point décimal
-    // au milieu d'une interface en français passe pour une négligence.
-    lignes.push({nom:'À l\'unité',prix:(Math.round(parseFloat(unitaire)*100)/100).toFixed(2).replace('.',',')+' € / unité'});
-  }
+  var lignes=[];
+  types.forEach(function(type){
+    var base=(t.tarifs||{})[type];
+    var unitaire=(t.tarifs_unitaires||{})[type];
+    // Pas de table de libellés dans l'application : on capitalise le nom
+    // technique, comme le fait déjà l'affichage des demandes.
+    var etiquette=types.length>1
+      ? type.charAt(0).toUpperCase()+type.slice(1).replace(/_/g,' ')+' — '
+      : '';
+
+    if(base&&typeof base==='object'){
+      Object.keys(base).forEach(function(k){
+        var v=parseFloat(base[k]);
+        if(v>0)lignes.push({nom:etiquette+k.replace(/_/g,' '),prix:Math.round(v)+' €'});
+      });
+    }else if(base&&parseFloat(base)>0){
+      lignes.push({nom:etiquette+'Forfait',prix:Math.round(parseFloat(base))+' €'});
+    }
+    if(unitaire&&parseFloat(unitaire)>0){
+      lignes.push({nom:etiquette+'À l\'unité',
+        prix:(Math.round(parseFloat(unitaire)*100)/100).toFixed(2).replace('.',',')+' € / unité'});
+    }
+  });
+
+  // Le calcul par type, plus haut, a rempli `lignes`.
 
   if(!lignes.length){
     // Aucun tarif pour cette prestation : on le dit, et on mène à l'écran qui
@@ -9242,6 +9529,22 @@ function basculerFormulaireDevis(id,prestation){
   form.style.display=etaitOuvert?'none':'block';
   if(btn)btn.textContent=etaitOuvert?'💰 Proposer un prix':'Fermer';
   if(!etaitOuvert){
+    // ── LA DEMANDE EXISTE-T-ELLE ENCORE ? ───────────────────────────────
+    // Le prestataire s'apprête à saisir un prix et à rédiger un message. Autant
+    // vérifier maintenant que la demande n'a pas été supprimée entre le dernier
+    // sondage et ce clic — plutôt que de le lui apprendre après qu'il a écrit.
+    //
+    // Silencieux si tout va bien : on n'interrompt personne pour dire que rien
+    // n'a changé.
+    fetch(API+'/api/demandes/'+id,{headers:authHeaders()}).then(function(rep){
+      if(rep.status!==404)return;
+      toast('Cette demande vient d\'être supprimée par le client.',6000);
+      var c=document.getElementById('carte-demande-'+id);
+      if(c&&c.parentElement){c.style.opacity='0';setTimeout(function(){if(c.parentElement)c.remove()},320)}
+      if(typeof viderMemoireRequetes==='function')viderMemoireRequetes();
+      if(typeof loadProDemandes==='function')loadProDemandes(true);
+    }).catch(function(){ /* réseau indisponible : l'envoi tranchera */ });
+
     if(prestation)rappelTarifsPro(id,prestation);
     var prix=document.getElementById('prix-'+id);
     if(prix)setTimeout(function(){prix.focus()},60);
@@ -9267,7 +9570,32 @@ async function envoyerDevis(demandeId){
   try{
     const r=await fetch(API+'/api/devis',{method:'POST',headers:authHeaders(),body:JSON.stringify({demande_id:demandeId,prix_ttc:parseFloat(prix),description:msg})});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn){btn.disabled=false;btn.textContent='Envoyer mon devis'}return}
+
+    // ── LA DEMANDE A DISPARU PENDANT QU'IL ÉCRIVAIT ─────────────────────
+    // Le client peut supprimer sa demande à tout moment. La liste du
+    // prestataire ne se rafraîchit qu'au sondage suivant : il a donc jusqu'à
+    // une minute pour saisir un prix sur quelque chose qui n'existe plus.
+    //
+    // Le serveur refuse — aucun devis ne peut aboutir, aucun argent ne bouge.
+    // Mais « Erreur : Demande introuvable » ne dit pas ce qui s'est passé, et
+    // la carte restait à l'écran : il pouvait réessayer indéfiniment.
+    //
+    // On explique, et on retire la carte tout de suite.
+    if(r.status===404){
+      toast('Cette demande vient d\'être supprimée par le client. Votre devis n\'a pas été envoyé.',6000);
+      var carte=document.getElementById('carte-demande-'+demandeId);
+      if(carte&&carte.parentElement){
+        carte.style.transition='opacity .3s';
+        carte.style.opacity='0';
+        setTimeout(function(){ if(carte.parentElement)carte.remove(); },320);
+      }
+      // La liste et le compteur se remettent d'accord sans attendre le sondage.
+      if(typeof viderMemoireRequetes==='function')viderMemoireRequetes();
+      if(typeof loadProDemandes==='function')loadProDemandes(true);
+      return;
+    }
+
+    if(!r.ok){toast(messageErreur(r, d));if(btn){btn.disabled=false;btn.textContent='Envoyer mon devis'}return}
     vibrer('succes');
     toast('✅ Devis envoyé au client !');
     loadProDemandes();loadProDevisCount();
@@ -9307,7 +9635,15 @@ const TARIF_CATEGORIES=[
     note:'Prix par m² de surface vitrée, état propre. Le client indique la surface exacte.'},
   {key:'tapis',label:'🧶 Tapis',unite:true,uniteLabel:'m²',tiers:null,placeholder:16,
     note:'Prix par m², pour un tapis synthétique, état propre. Coton/jute-sisal/berbère/laine/soie ajustent ensuite automatiquement le prix (la soie coûte nettement plus cher à nettoyer). Le client indique la surface exacte.'},
-  {key:'autre',label:'➕ Autre',tiers:null,placeholder:60,note:'Prix de base indicatif, à ajuster au cas par cas dans votre message au client.'}
+  // « Autre » a été retiré des tarifs prestataire.
+  //
+  // Une prestation « autre » n'a pas de tarif possible : elle recouvre tout ce
+  // que le client décrit en texte libre. Demander un prix de base pour
+  // l'inconnu produisait un chiffre qui n'engageait personne.
+  //
+  // Le client garde la catégorie — c'est utile, elle capte des besoins qui ne
+  // rentrent nulle part. Le prestataire, lui, voit la demande si elle est dans
+  // sa zone et répond au cas par cas, avec le prix qu'il juge.
 ];
 
 // Icônes vectorielles plutôt que les emojis des libellés : ils se dessinent
@@ -9543,7 +9879,7 @@ async function saveTarifs(){
   try{
     const r=await fetchGroupe(API+'/api/societes/tarifs',{method:'PATCH',headers:authHeaders(),body:JSON.stringify({tarifs,tarifs_unitaires:tarifsUnitaires,prestations})});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     toast('💾 Tarifs enregistrés !');
     tarifsModifies=false;
     var etat=document.getElementById('etat-tarifs');
@@ -9580,7 +9916,7 @@ async function toggleDispo(){
       document.getElementById('dispo-toggle').classList.toggle('on',disponible);
       document.getElementById('dispo-sub').textContent=disponible?'Vous êtes disponible':'Vous êtes indisponible';
       majEnteteProDisponibilite();
-      toast('Erreur, réessayez.');return;
+      toast("L'action n'a pas abouti. Réessayez dans un instant.");return;
     }
   }catch(e){
     disponible=!disponible;
@@ -9603,7 +9939,7 @@ async function annulerProDevis(devisId,btn){
   try{
     const r=await fetch(API+'/api/devis/'+devisId+'/annuler-pro',{method:'POST',headers:authHeaders()});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn)btn.disabled=false;return}
+    if(!r.ok){toast(messageErreur(r, d));if(btn)btn.disabled=false;return}
     var msg;
     if(d.suspendu){msg='🚫 Devis annulé. ⚠️ Votre compte a été suspendu suite à plusieurs annulations — contactez le support Gleam pour être réactivé.'}
     else if(typeof d.taux_fiabilite==='number'){msg='🚫 Devis annulé. Le client a été '+(d.rembourse?'intégralement remboursé':'notifié')+'. Votre taux de fiabilité est maintenant de '+d.taux_fiabilite+'%.'}
@@ -9917,7 +10253,7 @@ async function envoyerContactSupport(){
   try{
     const r=await fetch(API+'/api/signalements',{method:'POST',headers:authHeaders(),body:JSON.stringify({motif:motif,description:desc})});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn)btn.disabled=false;return}
+    if(!r.ok){toast(messageErreur(r, d));if(btn)btn.disabled=false;return}
     closeModalForce();
     toast('✅ Message envoyé. Notre équipe va vous répondre par email.',5000);
   }catch(e){toast(friendlyNetworkError(e));if(btn)btn.disabled=false}
@@ -9948,7 +10284,7 @@ async function envoyerSignalement(signaleId){
   try{
     const r=await fetch(API+'/api/signalements',{method:'POST',headers:authHeaders(),body:JSON.stringify({signale_id:signaleId,demande_id:currentChatDemandeId,motif:motif,description:desc})});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn)btn.disabled=false;return}
+    if(!r.ok){toast(messageErreur(r, d));if(btn)btn.disabled=false;return}
     closeModalForce();
     toast('🚩 Signalement envoyé. Notre équipe va l\u2019examiner.',5000);
   }catch(e){toast(friendlyNetworkError(e));if(btn)btn.disabled=false}
@@ -10308,7 +10644,7 @@ async function configurerPaiementsPro(){
   try{
     const r=await fetch(API+'/api/paiements/connect/onboarding',{method:'POST',headers:authHeaders()});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     window.location.href=d.url;
   }catch(e){toast(friendlyNetworkError(e))}
 }
@@ -10456,7 +10792,7 @@ async function ajouterFavori(proId,proName,btn){
   try{
     const r=await fetch(API+'/api/favoris',{method:'POST',headers:authHeaders(),body:JSON.stringify({pro_id:proId})});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn)btn.disabled=false;return}
+    if(!r.ok){toast(messageErreur(r, d));if(btn)btn.disabled=false;return}
     toast('⭐ '+escapeHtml(proName)+' ajouté à vos favoris !');
     if(btn){btn.innerHTML='<i data-lucide="star" style="width:14px;height:14px;vertical-align:-2px;fill:currentColor"></i> Dans vos favoris';if(window.lucide)lucide.createIcons()}
   }catch(e){toast(friendlyNetworkError(e));if(btn)btn.disabled=false}
@@ -10909,7 +11245,7 @@ async function showFacture(demandeId){
   try{
     const r=await fetch(API+'/api/demandes/'+demandeId+'/facture',{headers:authHeaders()});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));return}
+    if(!r.ok){toast(messageErreur(r, d));return}
     var w=window.open('','_blank');
     if(!w){toast('Autorisez les fenêtres pop-up pour voir le document.');return}
     w.document.write(buildFactureHtml(d,isPro()));
@@ -12806,7 +13142,7 @@ async function sendDemand(type){
     var method=isEdit?'PATCH':'POST';
     const r=await fetch(url,{method:method,headers:authHeaders(),body:JSON.stringify({prestations:prestations,address:adresseComplete,date:date,time:time,flexibility:flex,photos:photos.slice(0,5),pro_prefere_id:proPrefereChoisi,recurrence:recurrenceChoisie,latitude:adresseChoisieLat,longitude:adresseChoisieLng})});
     const d=await safeJson(r);
-    if(!r.ok){toast('Erreur : '+(d.error||''));if(btn){btn.disabled=false;btn.textContent='Envoyer ma demande'}return}
+    if(!r.ok){toast(messageErreur(r, d));if(btn){btn.disabled=false;btn.textContent='Envoyer ma demande'}return}
     document.getElementById('modal-overlay').classList.remove('open');
     photos=[];selectedServices=[];
     adresseChoisieLat=null;adresseChoisieLng=null;

@@ -4538,7 +4538,7 @@ textarea { min-height: 92px; padding-top: 13px; }
 
 
         <label style="margin-top:20px">Code de parrainage <span class="optional">(optionnel)</span></label>
-        <input type="text" id="r-code-parrainage" placeholder="Ex: MADY1234" style="text-transform:uppercase">
+        <input type="text" id="r-code-parrainage" placeholder="Ex: CAMI4827" style="text-transform:uppercase">
         <label style="display:flex;align-items:flex-start;gap:8px;margin-top:16px;cursor:pointer;font-weight:400;font-size:13px">
           <input type="checkbox" id="r-cgu-accept" style="width:auto;margin-top:2px">
           <span>J'accepte les <a href="cgu.html" target="_blank" style="color:var(--p);font-weight:600">Conditions Générales d'Utilisation</a> et la <a href="confidentialite.html" target="_blank" style="color:var(--p);font-weight:600">Politique de Confidentialité</a> de Gleam.</span>
@@ -5138,7 +5138,16 @@ textarea { min-height: 92px; padding-top: 13px; }
 <script src="https://js.stripe.com/v3/"></script>
 <script src="https://unpkg.com/lucide@1.28.0/dist/umd/lucide.js"></script>
 <script>
-const API='https://gleam-production-9b95.up.railway.app';
+// L'API est désormais servie par le MÊME serveur que cette page. On utilise
+// donc une adresse relative : la requête ne sort plus du domaine, il n'y a
+// plus de partage d'origine, et l'application fonctionne à l'identique sur
+// gleam-app.fr, sur l'adresse Railway, ou en local.
+//
+// Le repli sur l'adresse Railway couvre l'application mobile Capacitor, qui
+// s'exécute depuis un fichier local et n'a donc pas de serveur d'origine.
+const API = (location.protocol === 'file:' || location.hostname === 'localhost')
+  ? 'https://gleam-production-9b95.up.railway.app'
+  : '';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ÉCRAN DE DÉMARRAGE
@@ -5387,7 +5396,10 @@ function ouvrirConsoleGleam(){
   // que tous les visiteurs voient.
   // Sa place est ici : on l'ouvre quand on cherche, pas quand on visite.
   html += titre('VERSION');
-  html += ligne('  v26.08.08-7bff77b');
+  // Empreinte recalculée à chaque livraison. L'ancienne était figée au
+  // 8 août : elle ne disait donc jamais quelle version tournait, et nous
+  // avons perdu deux échanges à nous demander si un déploiement avait pris.
+  html += ligne('  v26.08.19-30ad962');
 
   html += titre('APPAREIL');
   html += ligne('  ' + ((ua.match(/Android [\d.]+/) || ua.match(/OS \d+_\d+/) || ['système inconnu'])[0]));
@@ -5800,6 +5812,26 @@ const TAUX_COMMISSION = 0.15;
 // 25 voitures par semaine — une cinquantaine d'heures de travail — et le
 // résultat perdait toute crédibilité auprès de ceux qui connaissent le métier.
 // Durées portes ouvertes comprises : déplacement, installation, rangement.
+// Le nom de prestation stocké en base est une CLÉ sans accent : « canape »,
+// « terrasse ». Les cartes se contentaient de le capitaliser en CSS, ce qui
+// affichait « Canape » au lieu de « Canapé » — visible partout où une demande
+// est listée, et impossible à rattraper par la feuille de style.
+//
+// PANIERS_MOYENS porte déjà le nom lisible de chaque prestation. On s'en sert
+// plutôt que d'écrire une seconde table : deux listes des mêmes noms finissent
+// toujours par diverger.
+function libellePrestation(cle) {
+  var brut = String(cle || '').trim();
+  if (!brut) return '';
+  // Une demande peut porter plusieurs prestations, séparées par « + ».
+  return brut.split('+').map(function (part) {
+    var c = part.trim().toLowerCase();
+    var trouve = (typeof PANIERS_MOYENS !== 'undefined')
+      ? PANIERS_MOYENS.filter(function (p) { return p.cle === c; })[0] : null;
+    return trouve ? trouve.nom : (c.charAt(0).toUpperCase() + c.slice(1));
+  }).join(' + ');
+}
+
 const PANIERS_MOYENS = [
   { cle:'voiture',  nom:'Voiture',  icone:'car',        panier:125, heures:2.5 },
   { cle:'canape',   nom:'Canapé',   icone:'sofa',       panier:63,  heures:1.5 },
@@ -7251,7 +7283,7 @@ async function loadDemandes(silent){
       html+='<div class="demand-row fade-in-item" style="animation-delay:'+(i*0.04)+'s;'+urgentStyle+'" onclick="openDetail(\''+escAttr(d.id)+'\')">'+
         '<span class="demand-icon">'+icon+'</span>'+
         '<div class="demand-info">'+
-          '<div class="demand-type">'+escapeHtml(d.prestation)+urgentBadge+badgeRecurrence+'</div>'+
+          '<div class="demand-type">'+escapeHtml(libellePrestation(d.prestation))+urgentBadge+badgeRecurrence+'</div>'+
           '<div class="demand-addr">'+escapeHtml(d.adresse)+'</div>'+
           '<div class="demand-status '+st[1]+'">'+st[0]+'</div>'+
         '</div>'+
@@ -7305,7 +7337,7 @@ async function renderActiveRequestBanner(data){
     acceptee:{label:'Prestation à venir',color:'var(--p)',action:"openDetail('"+escAttr(meilleure.id)+"')"}
   }[meilleure.statut];
   var icon=ICONS_get((meilleure.prestation||'').split(' + ')[0]);
-  var sousTitre=escapeHtml(meilleure.prestation);
+  var sousTitre=escapeHtml(libellePrestation(meilleure.prestation));
   // Le créneau (date et heure) est l'information la plus utile à voir d'un coup d'œil, sans avoir
   // à ouvrir "Mes devis" pour la retrouver — surtout après une reprogrammation, où le client doit
   // pouvoir constater immédiatement le changement depuis l'accueil.
@@ -7921,6 +7953,9 @@ async function envoyerNote(btn){
 
 // ── PRO DEMANDES ──
 var proDemandesCache=[];
+// La cause du vide, transmise par le serveur dans un en-tête. Null quand le
+// dossier est complet — auquel cas un vide signifie « pas de demande ».
+var proAccesRestreint=null;
 var proDemandesFilterActive='tous';
 function setProDemandesFilter(f){
   proDemandesFilterActive=f;
@@ -7962,6 +7997,33 @@ async function loadProDemandes(silent){
     if(r.status===401)return;   // l'intercepteur global prévient puis déconnecte
     if(!r.ok){c.innerHTML='<div class="etat-vide"><i data-lucide="wifi-off" style="width:44px;height:44px;color:var(--gray);margin-bottom:14px"></i><h3>Chargement impossible</h3><p>Une erreur est survenue en récupérant les demandes. Vérifiez votre connexion et réessayez.</p><button class="btn" style="width:auto;padding:10px 22px" onclick="loadProDemandes()">Réessayer</button></div>';if(window.lucide)lucide.createIcons();document.getElementById('stat-demandes').textContent='0';return}
     const data=await safeJson(r);
+
+    // ── POURQUOI LA LISTE EST VIDE ────────────────────────────────────────
+    // Le serveur renvoie une liste vide dans deux cas très différents : le
+    // dossier du prestataire est incomplet, ou il n'y a simplement aucune
+    // demande dans sa zone.
+    //
+    // On ne le demande QUE si la liste est vide : inutile d'interroger le
+    // serveur quand des demandes s'affichent, et cela évite une requête
+    // supplémentaire à chaque sondage.
+    //
+    // Une route séparée, jamais un élément glissé dans la liste : la première
+    // version le faisait, et une application pas encore mise à jour l'a
+    // affiché comme une demande vide avec un bouton « Proposer un prix ».
+    proAccesRestreint = null;
+    if (Array.isArray(data) && data.length === 0) {
+      try {
+        const ra = await fetch(API + '/api/pro/acces', { headers: authHeaders() });
+        if (ra.ok) {
+          const acces = await safeJson(ra);
+          // Un serveur plus ancien ne connaît pas cette route : on reste alors
+          // sur le message générique, qui n'est jamais faux.
+          if (acces && acces.en_regle === false && acces.message) {
+            proAccesRestreint = acces.message;
+          }
+        }
+      } catch (e) { /* réseau : message générique, c'est sans conséquence */ }
+    }
     document.getElementById('stat-demandes').textContent=data.length||0;
     // Le compte migre dans le bandeau, où il tient en une phrase plutôt qu'en
     // carte chiffrée répétant la liste située juste en dessous.
@@ -7999,11 +8061,22 @@ function renderProDemandesCards(){
     // Un écran vide n'apprend rien. On explique la cause probable, on propose
     // l'action correspondante, et on montre à quoi ressemblera une demande —
     // clairement identifié comme exemple, jamais mêlé à de vraies demandes.
+    // Le titre ne change pas : « Aucune demande pour le moment » reste vrai
+    // dans les deux cas. C'est la CAUSE qui change, et l'action avec elle.
+    //
+    // « Régler ma zone » n'a rien à voir avec un dossier incomplet : envoyer
+    // quelqu'un élargir son rayon alors qu'il lui manque une pièce d'identité,
+    // c'est lui faire perdre son temps et lui cacher le vrai obstacle.
+    //
+    // Le bouton mène donc directement au dépôt des documents.
+    var dossierIncomplet = !!proAccesRestreint;
     c.innerHTML=emptyStateHtml({
       title:'Aucune demande pour le moment',
-      sub:'Élargissez votre zone d\'intervention ou ajoutez des prestations à votre profil pour en recevoir davantage.',
-      ctaLabel:'Régler ma zone',
-      ctaAction:"goProTab('pro-profile')"
+      sub: dossierIncomplet
+        ? proAccesRestreint + ' Vous recevrez des demandes dès que votre dossier sera complet.'
+        : 'Élargissez votre zone d\'intervention ou ajoutez des prestations à votre profil pour en recevoir davantage.',
+      ctaLabel: dossierIncomplet ? 'Déposer mes documents' : 'Régler ma zone',
+      ctaAction: dossierIncomplet ? 'ouvrirDocumentsPro()' : "goProTab('pro-profile')"
     })+exempleDemandePro();
     if(window.lucide)lucide.createIcons();
     return;
@@ -8066,7 +8139,7 @@ function renderProDemandesCards(){
       })();
     var urgence=libelleUrgence(d.creneau);
     html+='<div class="demande-card fade-in-item" id="carte-demande-'+safeId+'" style="animation-delay:'+(di*0.04)+'s">'+
-      '<div class="dc-header"><div class="dc-type">'+ICONS_get(d.prestation)+' '+escapeHtml(d.prestation)+'</div>'+
+      '<div class="dc-header"><div class="dc-type">'+ICONS_get(d.prestation)+' '+escapeHtml(libellePrestation(d.prestation))+'</div>'+
       '<span class="dc-num">'+escapeHtml(d.numero_anonyme||'#???')+'</span></div>'+
       // Le repère d'urgence rend visible le tri déjà appliqué : la liste est
       // ordonnée du créneau le plus proche au plus lointain.
@@ -11202,7 +11275,7 @@ function showParrainage(){
       '<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">'+
         '<label style="font-size:13px;font-weight:700;display:block;margin-bottom:8px">On vous a donné un code ?</label>'+
         '<div style="display:flex;gap:8px">'+
-          '<input type="text" id="code-parrain-recu" placeholder="Ex: MADY1234" style="text-transform:uppercase;flex:1">'+
+          '<input type="text" id="code-parrain-recu" placeholder="Ex: CAMI4827" style="text-transform:uppercase;flex:1">'+
           '<button class="btn-accept" style="width:auto;padding:0 16px;flex-shrink:0" onclick="renseignerCodeParrainage()">Valider</button>'+
         '</div>'+
         '<div style="font-size:11px;color:var(--gray);margin-top:6px">Possible uniquement avant votre première prestation payée.</div>'+

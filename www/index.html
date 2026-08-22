@@ -2546,6 +2546,55 @@ input[type="checkbox"], input[type="radio"], .toggle-switch {
    49. ACCUEIL VISITEUR — PARCOURS, AIGUILLAGE, ACTIONS
    ──────────────────────────────────────────────────────────────────────────── */
 
+/* ── LE BANDEAU DE FACTURATION ──────────────────────────────────────────────
+   Ambre plutôt que rouge : ce n'est pas une erreur, c'est une information
+   manquante. Le rouge dirait « quelque chose ne va pas » alors que tout va
+   bien — la commande est possible. */
+.bandeau-facturation {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  margin: 0 0 var(--gap-4);
+  padding: var(--gap-3) var(--gap-4);
+  background: #FFF8E9;
+  border: 1px solid #F0DCA8;
+  border-radius: var(--radius-3);
+}
+.bandeau-facturation-texte { flex: 1; min-width: 0; }
+.bandeau-facturation-texte strong {
+  display: block;
+  font-size: 13.5px;
+  color: #7A5A12;
+  margin-bottom: 2px;
+}
+.bandeau-facturation-texte span {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.bandeau-facturation-action {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-2);
+  background: #7A5A12;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.bandeau-facturation-fermer {
+  flex: 0 0 auto;
+  width: 28px; height: 28px;
+  border: none;
+  background: transparent;
+  color: #9A7A32;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
 /* Les trois étapes. Un <ol> et non des <div> : c'est une séquence, l'ordre
    porte du sens, et un lecteur d'écran doit l'annoncer comme telle. */
 .parcours-visiteur {
@@ -4572,6 +4621,23 @@ textarea { min-height: 92px; padding-top: 13px; }
     </div>
     <div class="entete-client-chiffres" id="client-chiffres-entete"></div>
   </div>
+
+  <!-- ── BANDEAU DE FACTURATION ────────────────────────────────────────────
+       Affiché UNIQUEMENT pour un compte entreprise dont les informations de
+       société manquent. Il ne bloque rien : le bouton conduit droit au
+       formulaire, la croix le referme.
+
+       Pourquoi ici et pas à la connexion : une entreprise vient commander,
+       pas remplir un formulaire administratif. Lui barrer la route avant
+       qu'elle ait vu vos prestations la ferait partir. -->
+  <div id="bandeau-facturation" class="bandeau-facturation" style="display:none">
+    <div class="bandeau-facturation-texte">
+      <strong>Vos factures ne seront pas à votre nom</strong>
+      <span>Raison sociale, SIRET et adresse — pour des factures déductibles.</span>
+    </div>
+    <button class="bandeau-facturation-action" onclick="ouvrirFacturation()">Compléter</button>
+    <button class="bandeau-facturation-fermer" onclick="fermerBandeauFacturation()" aria-label="Masquer">×</button>
+  </div>
   <div class="home-hero-card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <i data-lucide="shield-check" style="width:20px;height:20px;color:var(--mint);flex-shrink:0"></i>
@@ -5145,9 +5211,26 @@ textarea { min-height: 92px; padding-top: 13px; }
 //
 // Le repli sur l'adresse Railway couvre l'application mobile Capacitor, qui
 // s'exécute depuis un fichier local et n'a donc pas de serveur d'origine.
-const API = (location.protocol === 'file:' || location.hostname === 'localhost')
-  ? 'https://gleam-production-9b95.up.railway.app'
-  : '';
+// ── L'ADRESSE DE L'API ────────────────────────────────────────────────────
+//
+// J'avais rendu cette adresse RELATIVE en prévision de la bascule vers
+// Railway. Erreur : l'application est encore servie par Netlify, et
+// « /api/auth/login » visait donc Netlify — qui n'a pas cette route et
+// répondait 404. La connexion était impossible.
+//
+// La règle est maintenant sûre partout : on n'utilise l'adresse relative que
+// si la page est DÉJÀ servie par le serveur d'API. Partout ailleurs, on vise
+// Railway explicitement.
+//
+//   servie par Railway     relative — aucun partage d'origine
+//   servie par Netlify     Railway en absolu — CORS l'autorise déjà
+//   application mobile     Railway en absolu — pas de serveur d'origine
+//   développement local    Railway en absolu
+//
+// Le jour où gleam-app.fr pointera vers Railway, l'adresse redeviendra
+// relative d'elle-même, sans rien changer ici.
+const HOTE_API = 'https://gleam-production-9b95.up.railway.app';
+const API = (location.origin === HOTE_API) ? '' : HOTE_API;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ÉCRAN DE DÉMARRAGE
@@ -6377,7 +6460,21 @@ async function safeJson(r){
   catch(e){
     if(r.status===413)return{error:'Le fichier envoyé est trop volumineux. Réessayez avec moins de photos ou des photos plus légères.'};
     if(r.status===0)return{error:'Impossible de contacter le serveur. Vérifiez votre connexion internet.'};
-    return{error:'Erreur serveur (code '+r.status+'). Réessayez dans un instant.'};
+    // ── UN MESSAGE POUR UN HUMAIN, PAS UN CODE HTTP ────────────────────
+    // « Erreur serveur (code 404) » ne veut rien dire pour un client ni pour
+    // un artisan. Ce sont les deux seules personnes qui le lisent, et cela
+    // leur donne l'impression d'une application inachevée.
+    //
+    // Le code technique reste utile — mais dans la console, pour vous.
+    console.error('Réponse illisible du serveur — statut ' + r.status +
+                  ' sur ' + (r.url || 'adresse inconnue'));
+    if (r.status === 404) {
+      return { error: 'Ce service est momentanément indisponible. Réessayez dans quelques instants.' };
+    }
+    if (r.status >= 500) {
+      return { error: 'Une erreur est survenue de notre côté. Réessayez dans un instant — vos données sont intactes.' };
+    }
+    return { error: 'L\'action n\'a pas abouti. Réessayez dans un instant.' };
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -6526,6 +6623,9 @@ async function doRegister(){
 }
 
 function enterApp(){
+  // Le bandeau se décide à l'entrée : c'est là qu'on connaît enfin le type de
+  // compte et l'état des informations de société.
+  setTimeout(majBandeauFacturation, 0);
   // Changement de compte : aucune réponse ne doit survivre d'un utilisateur
   // à l'autre.
   viderMemoireRequetes();
@@ -9189,6 +9289,9 @@ async function enregistrerFacturation(){
     currentUser.raison_sociale=corps.raison_sociale;
     currentUser.adresse_facturation=corps.adresse_facturation;
     currentUser.tva_intracom=corps.tva_intracom;
+      // Les champs viennent d'être renseignés : le bandeau doit disparaître
+      // immédiatement, sans attendre un rechargement.
+      majBandeauFacturation();
     document.getElementById('modal-overlay').classList.remove('open');
     if(d.facturation_manquante&&d.facturation_manquante.length){
       toast('Enregistré. Il manque encore : '+d.facturation_manquante.join(', ').replace(/_/g,' ')+'.');
@@ -9200,6 +9303,54 @@ async function enregistrerFacturation(){
 
 // Un paiement refusé faute d'informations de facturation ne doit pas se solder
 // par un message d'erreur : le gérant est à un SIRET près de pouvoir payer.
+// ═══════════════════════════════════════════════════════════════════════════
+// LE BANDEAU DE FACTURATION — ENTREPRISE UNIQUEMENT
+//
+// Il signale, il ne bloque pas. L'entreprise peut créer une demande, recevoir
+// des devis, discuter — tout, sauf payer sans avoir renseigné sa société.
+//
+// POURQUOI LE BLOCAGE AU PAIEMENT RESTE
+//
+// L'article L.441-9 du Code de commerce impose au VENDEUR de délivrer une
+// facture conforme — pas à l'acheteur de la réclamer. Une facture entre
+// professionnels sans raison sociale ni SIRET expose l'émetteur à une amende
+// pouvant atteindre 375 000 € pour une personne morale.
+//
+// Autrement dit : si l'entreprise ne renseigne rien et qu'on émet quand même
+// la facture, ce n'est pas elle qui est en tort. C'est Gleam.
+//
+// Le bandeau évite d'en arriver là ; le blocage au paiement garantit qu'on
+// n'y arrive jamais.
+// ═══════════════════════════════════════════════════════════════════════════
+var bandeauFacturationMasque = false;
+
+function fermerBandeauFacturation(){
+  // La croix masque le bandeau pour la SESSION EN COURS.
+  //
+  // À ne pas confondre avec le fait de renseigner ses informations : une fois
+  // la raison sociale, le SIRET et l'adresse enregistrés, le bandeau ne
+  // revient JAMAIS — ni à la demande suivante, ni à la reconnexion. Ces
+  // champs sont écrits en base sur le compte, une bonne fois pour toutes.
+  //
+  // La croix ne sert qu'à celui qui préfère remplir plus tard : le rappel
+  // reviendra au démarrage suivant tant que l'information manque réellement.
+  bandeauFacturationMasque = true;
+  var b = document.getElementById('bandeau-facturation');
+  if (b) b.style.display = 'none';
+}
+
+function majBandeauFacturation(){
+  var b = document.getElementById('bandeau-facturation');
+  if (!b) return;
+  var estEntreprise = currentUser && currentUser.type === 'entreprise';
+  var manque = estEntreprise && (
+    !String(currentUser.raison_sociale || '').trim() ||
+    !/^\d{14}$/.test(String(currentUser.siret || '').replace(/\s/g, '')) ||
+    !String(currentUser.adresse_facturation || '').trim()
+  );
+  b.style.display = (manque && !bandeauFacturationMasque) ? 'flex' : 'none';
+}
+
 function traiterPaiementRefuse(d){
   if(!d||!Array.isArray(d.facturation_manquante)||!d.facturation_manquante.length)return false;
   toast(d.error||'Informations de facturation requises.');
@@ -9963,6 +10114,21 @@ async function saveTarifs(){
     const d=await safeJson(r);
     if(!r.ok){toast(messageErreur(r, d));return}
     toast('💾 Tarifs enregistrés !');
+
+    // ── LA MÉMOIRE DES TARIFS DOIT ÊTRE VIDÉE ────────────────────────────
+    // `chargerTarifsPro()` garde les tarifs dans `tarifsProEnCache` pour
+    // toute la session, et rien ne les rafraîchissait après un
+    // enregistrement.
+    //
+    // Conséquence : le prestataire modifiait ses prix, ouvrait un devis, et
+    // le rappel « Vos tarifs enregistrés » lui montrait les ANCIENS. Il
+    // chiffrait sur une base fausse, ou repartait vérifier sa grille — et
+    // perdait la demande de vue.
+    //
+    // Il fallait quitter l'application et la rouvrir pour voir ses vrais
+    // prix. Personne ne devine ça.
+    tarifsProEnCache = null;
+
     tarifsModifies=false;
     var etat=document.getElementById('etat-tarifs');
     if(etat){etat.textContent='Enregistré';etat.className='etat enregistre'}
@@ -10853,7 +11019,7 @@ async function confirmerRelanceRecurrente(demandeId){
 function ouvrirReprogrammer(demandeId){
   var today=localDateISO(new Date());
   var opts='';
-  for(var i=0;i<27;i++){var h=Math.floor(i/2)+7,m=i%2?'30':'00';opts+='<option>'+h+'h'+m+'</option>'}
+  opts = optionsHoraires();
   document.getElementById('modal-body').innerHTML='<div class="modal-title"><i data-lucide="calendar-clock" style="width:20px;height:20px;vertical-align:-4px"></i> Reprogrammer</div>'+
     '<div class="modal-sub">L\'autre partie devra confirmer ce nouveau créneau.</div>'+
     '<div class="field-group"><label>Nouvelle date et heure</label>'+
@@ -11363,6 +11529,26 @@ function showDevisDocument(devisId){
 }
 function buildDevisHtml(v){
   var proNom=v.pro?((v.pro.prenom||'')+' '+(v.pro.nom||'')).trim():'Prestataire Gleam';
+
+  // ── L'IDENTITÉ DU DESTINATAIRE ─────────────────────────────────────────
+  // Elle vient du compte connecté : c'est lui qui a demandé le devis. Pour une
+  // entreprise, la raison sociale prime sur le nom de la personne — c'est la
+  // société qui contracte, pas son gérant.
+  var clientNom = 'Client Gleam';
+  var clientSiret = '';
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    if (currentUser.type === 'entreprise' && String(currentUser.raison_sociale||'').trim()) {
+      clientNom = currentUser.raison_sociale;
+      clientSiret = currentUser.siret || '';
+    } else {
+      var nomComplet = ((currentUser.prenom||'') + ' ' + (currentUser.nom||'')).trim();
+      if (nomComplet) clientNom = nomComplet;
+    }
+  }
+
+  // Le lieu d'exécution : attendu sur un devis de prestation à domicile, et
+  // utile en cas de litige.
+  var adressePresta = (v.demande && v.demande.adresse) ? v.demande.adresse : '';
   var dateDoc=new Date(v.created_at||Date.now()).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
   // Un devis reste valable un temps raisonnable, pas indéfiniment — pratique courante et attendue
   // de tout devis professionnel, la personne doit savoir jusqu'à quand ce prix est garanti.
@@ -11374,6 +11560,12 @@ function buildDevisHtml(v){
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Devis '+numero+'</title>'+
     '<style>'+
     '@page{size:A4;margin:18mm 16mm}'+
+    // Les deux factures partagent un fichier, pas une page : chacune doit
+    // s'imprimer sur sa propre feuille, sinon elles se lisent comme un seul
+    // document et perdent leur valeur de pièce distincte.
+    '.saut-page{page-break-before:always;break-before:page;margin-top:40px;'+
+      'padding-top:40px;border-top:2px dashed #E5E7EB}'+
+    '@media print{.saut-page{border-top:none;margin-top:0;padding-top:0}}'+
     '*{box-sizing:border-box}'+
     'body{font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;max-width:760px;margin:0 auto;padding:30px 24px;color:#1F2937;font-size:14px;line-height:1.5}'+
     '.entete{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:22px;margin-bottom:26px;border-bottom:3px solid #0E5A63}'+
@@ -11411,11 +11603,24 @@ function buildDevisHtml(v){
     '</div>'+
 
     '<div class="parties">'+
+      // ── LES DEUX PARTIES, IDENTIFIÉES ────────────────────────────────
+      // Un devis est une OFFRE DE CONTRAT : signé, il engage les deux parties
+      // au sens de l'article 1113 du Code civil. Sans identité du destinataire,
+      // il est contestable.
+      //
+      // Et les articles R.123-237 et R.123-238 du Code de commerce imposent
+      // que tout document émis par une entreprise porte son SIRET. « Prestataire
+      // indépendant Gleam » ne dit pas QUI exécute.
       '<div class="partie-box"><div class="partie-label">Prestataire</div><div class="partie-nom">'+escapeHtml(proNom)+'</div>'+
-        (v.pro&&v.pro.note_moyenne?'<div class="partie-detail">Note moyenne : '+escapeHtml(v.pro.note_moyenne)+' / 5</div>':'<div class="partie-detail">Prestataire indépendant Gleam</div>')+
+        (v.pro&&v.pro.siret?'<div class="partie-detail">SIRET '+escapeHtml(v.pro.siret)+'</div>':'')+
+        '<div class="partie-detail">Prestataire indépendant — TVA non applicable, art. 293 B du CGI</div>'+
+        (v.pro&&v.pro.note_moyenne?'<div class="partie-detail">Note moyenne : '+escapeHtml(v.pro.note_moyenne)+' / 5</div>':'')+
       '</div>'+
-      '<div class="partie-box"><div class="partie-label">Devis adressé à</div><div class="partie-nom">Vous</div>'+
-        '<div class="partie-detail">Via votre compte Gleam</div></div>'+
+      '<div class="partie-box"><div class="partie-label">Devis adressé à</div>'+
+        '<div class="partie-nom">'+escapeHtml(clientNom)+'</div>'+
+        (clientSiret?'<div class="partie-detail">SIRET '+escapeHtml(clientSiret)+'</div>':'')+
+        (adressePresta?'<div class="partie-detail">Lieu : '+escapeHtml(adressePresta)+'</div>':'')+
+      '</div>'+
     '</div>'+
 
     '<table><thead><tr><td class="desc">Description</td><td class="qte">Qté</td><td class="montant">Montant</td></tr></thead>'+
@@ -11426,6 +11631,19 @@ function buildDevisHtml(v){
     '<div class="total-ligne"><span>Total TTC</span><span>'+parseFloat(v.prix_ttc).toFixed(2)+' €</span></div>'+
 
     '<div class="validite"><span class="validite-marque">Validité</span><span><strong>Ce devis est valable jusqu\'au '+dateValiditeStr+'.</strong> Passé ce délai, le prestataire pourra être amené à réviser son prix. Ce document ne constitue pas une facture — le règlement n\'intervient qu\'après acceptation et réalisation de la prestation, directement depuis votre espace Gleam.</span></div>'+
+
+    // ── LA GRATUITÉ DU DEVIS ────────────────────────────────────────────
+    // L'article L.111-1 du Code de la consommation impose d'informer le
+    // consommateur du prix AVANT l'engagement — y compris du prix de
+    // l'établissement du devis lui-même. Beaucoup d'artisans facturent le
+    // déplacement ; le dire évite une contestation.
+    //
+    // Et l'arrêté du 17 mars 2015 rend le devis OBLIGATOIRE pour les services
+    // à la personne dès 100 € TTC. Vos prestations dépassent presque toutes
+    // ce seuil : ce document n'est pas une commodité, il est exigé.
+    '<div class="validite"><span class="validite-marque">Gratuité</span>'+
+      '<span>L\'établissement de ce devis est gratuit et sans engagement. '+
+      'Aucun frais de déplacement ni d\'étude n\'est facturé.</span></div>'+
 
     // Sans ce bouton, une application installée sur l'écran d'accueil piège
     // l'utilisateur : la fenêtre s'ouvre en plein écran, sans onglet ni barre
@@ -11442,6 +11660,91 @@ function buildDevisHtml(v){
 
     '</body></html>';
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// LA FACTURE DE COMMISSION — GLEAM VERS LE PRESTATAIRE
+//
+// Elle reprend la mise en page de la facture principale, sur une nouvelle
+// page à l'impression. Le prestataire obtient donc DEUX pièces comptables
+// dans un seul document :
+//
+//   page 1   sa facture au client        ce qu'il a vendu
+//   page 2   la facture Gleam            ce qu'il a acheté
+//
+// LE RELEVÉ A DISPARU. Sa répartition — payé, commission, net — est reprise
+// ici, au bas de la facture de commission. C'est le bon endroit : c'est
+// précisément le document qui explique le prélèvement.
+//
+// Trois documents, c'était deux de trop.
+// ═══════════════════════════════════════════════════════════════════════════
+function blocCommission(d) {
+  var f = d.facture_commission;
+  var dateCom = new Date(f.date || Date.now()).toLocaleDateString('fr-FR',
+    { day: '2-digit', month: 'long', year: 'numeric' });
+
+  return '<div class="saut-page"></div>' +
+    '<div class="doc-entete">' +
+      '<div class="doc-marque"><div class="doc-logo">Gleam</div>' +
+      '<div class="doc-baseline">Services de nettoyage à domicile</div></div>' +
+      '<div class="doc-info"><div class="doc-titre">Facture</div>' +
+      '<div class="doc-numero">N° ' + escapeHtml(f.numero) + '</div>' +
+      '<div class="doc-date">' + dateCom + '</div></div>' +
+    '</div>' +
+
+    // Le prestataire est ici l'ACHETEUR, alors qu'il est vendeur page 1.
+    // C'est ce renversement qui interdit de fusionner les deux factures.
+    '<div class="parties">' +
+      '<div class="partie-box"><div class="partie-label">Émetteur</div>' +
+        '<div class="partie-nom">Gleam</div>' +
+        '<div class="partie-detail">Service de mise en relation</div>' +
+        '<div class="partie-detail">gleam-app.fr</div>' +
+      '</div>' +
+      '<div class="partie-box"><div class="partie-label">Facturé à</div>' +
+        '<div class="partie-nom">' + escapeHtml(f.acheteur ? f.acheteur.nom_affiche : '') + '</div>' +
+        (f.acheteur && f.acheteur.siret
+          ? '<div class="partie-detail">SIRET ' + escapeHtml(f.acheteur.siret) + '</div>' : '') +
+        '<div class="partie-detail">Prestataire indépendant</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<table><thead><tr><td class="desc">Description</td><td class="qte">Qté</td>' +
+    '<td class="montant">Montant</td></tr></thead><tbody>' +
+      '<tr><td class="desc"><strong>Commission d\'intermédiation</strong>' +
+        '<div style="font-size:12px;color:#6B7280;margin-top:3px">' +
+        'Mise en relation, encaissement sécurisé et garantie de paiement — ' +
+        'facture n° ' + escapeHtml(d.numero) + '</div></td>' +
+      '<td class="qte">1</td><td class="montant">' + f.montant.toFixed(2) + ' €</td></tr>' +
+    '</tbody></table>' +
+
+    '<div class="total-ligne"><span>Total</span><span>' + f.montant.toFixed(2) + ' €</span></div>' +
+
+    // ── LA RÉPARTITION, REPRISE DU RELEVÉ ────────────────────────────────
+    // Elle appartient à ce document : c'est lui qui facture le prélèvement,
+    // c'est donc lui qui doit l'expliquer.
+    '<div class="repartition">' +
+      '<div class="repartition-titre">Détail du versement</div>' +
+      '<div class="repartition-ligne"><span>Montant payé par le client (TTC)</span>' +
+        '<span>' + d.montant_ttc.toFixed(2) + ' €</span></div>' +
+      '<div class="repartition-ligne"><span>Commission Gleam (cette facture)</span>' +
+        '<span>− ' + f.montant.toFixed(2) + ' €</span></div>' +
+      '<div class="repartition-ligne repartition-net"><span>Versé sur votre compte</span>' +
+        '<span>' + d.montant_pro.toFixed(2) + ' €</span></div>' +
+    '</div>' +
+
+    // Sans cette mention, la facture paraîtrait impayée : Gleam ne réclame
+    // rien, la commission a déjà été retenue sur le versement.
+    '<div class="paiement-info"><span class="paiement-marque">Règlement</span>' +
+      '<span>Réglée par compensation : cette commission a été retenue sur le ' +
+      'versement de la prestation. Aucun paiement de votre part n\'est attendu.</span></div>' +
+
+    '<div class="doc-pied">' +
+      '<p>TVA non applicable, article 293 B du Code général des impôts.</p>' +
+      '<p style="margin-top:8px">En cas de retard de paiement, pénalités au taux de ' +
+      'trois fois le taux d\'intérêt légal, et indemnité forfaitaire pour frais de ' +
+      'recouvrement de 40 € — articles L.441-10 et D.441-5 du Code de commerce.</p>' +
+      '<p style="margin-top:12px;color:#D1D5DB">Gleam — gleam-app.fr</p>' +
+    '</div>';
+}
+
 function buildFactureHtml(d,vuePro){
   var estEntreprise=d.client&&d.client.est_entreprise;
   var titre=vuePro?'Relevé de prestation':'Facture';
@@ -11456,7 +11759,13 @@ function buildFactureHtml(d,vuePro){
     '<tr><td class="desc"><strong>'+escapeHtml(ligneLabel)+'</strong><div class="sub-desc">'+escapeHtml(d.prestation||'')+'</div></td>'+
     '<td class="qte">1</td><td class="montant">'+(vuePro?d.montant_pro:d.montant_ttc).toFixed(2)+' €</td></tr>';
 
-  var blocRepartition=vuePro?
+  // ── LE RELEVÉ A ÉTÉ DÉPLACÉ ────────────────────────────────────────────
+  // Sa répartition est désormais AU BAS DE LA FACTURE DE COMMISSION, qui est
+  // le document qui facture ce prélèvement — donc celui qui doit l'expliquer.
+  //
+  // Le laisser ici l'aurait fait apparaître deux fois dans le même fichier.
+  // Trois documents, c'était deux de trop ; deux répartitions, c'en est une.
+  var blocRepartition=(vuePro && !d.facture_commission)?
     '<div class="repartition">'+
       '<div class="repartition-titre">Détail de la répartition</div>'+
       '<div class="repartition-ligne"><span>Montant payé par le client (TTC)</span><span>'+d.montant_ttc.toFixed(2)+' €</span></div>'+
@@ -11557,6 +11866,18 @@ function buildFactureHtml(d,vuePro){
     // d'adresse, et le seul recours est de quitter l'application.
     // window.close() est parfois refusé pour une fenêtre que le navigateur n'a
     // pas ouverte lui-même — d'où le repli sur l'historique.
+    // ── LA SECONDE FACTURE, DANS LE MÊME FICHIER ─────────────────────────
+    // Gleam vend un service d'intermédiation au prestataire : seconde vente,
+    // autre vendeur, autre acheteur. Deux paires ne tiennent pas sur une
+    // facture unique.
+    //
+    // Mais rien n'oblige à deux FICHIERS. Le prestataire ouvre un document et
+    // obtient les deux pièces — un geste pour lui, deux justificatifs pour sa
+    // comptabilité.
+    //
+    // Le client ne la voit jamais : elle ne le regarde pas.
+    (vuePro && d.facture_commission ? blocCommission(d) : '')+
+
     '<button class="bouton-retour-document" onclick="try{window.close()}catch(e){};setTimeout(function(){if(!window.closed)history.back()},120)">&#8592; Retour</button>'+
     '<button class="bouton-impression" onclick="window.print()">Imprimer ou enregistrer en PDF</button>'+
     '</body></html>';
@@ -12061,9 +12382,52 @@ function choisirRecurrence(btn){
 // Le créneau souhaité ne suppose aucun compte : il est désormais demandé à tout
 // le monde, visiteur compris. Le mur d'inscription arrive donc plus tard dans le
 // parcours, et la personne a déjà répondu à davantage de questions quand il tombe.
+// ═══════════════════════════════════════════════════════════════════════════
+// LES CRÉNEAUX HORAIRES — VINGT-QUATRE HEURES SUR VINGT-QUATRE
+//
+// Ils s'arrêtaient à 20h00 et commençaient à 7h00. Or une partie du nettoyage
+// se fait justement hors des heures de bureau : les bureaux le soir, les
+// commerces avant l'ouverture, les véhicules de nuit pour les chauffeurs.
+//
+// Quarante-huit créneaux d'une demi-heure couvrent la journée entière.
+//
+// ILS SONT GROUPÉS PAR MOMENT. Une liste de quarante-huit lignes sans repère
+// se parcourt mal sur un téléphone : on cherche « soirée », pas « 21h30 ».
+//
+// UNE SEULE FONCTION, DEUX USAGES. La demande initiale et la reprogrammation
+// affichaient la même liste, écrite deux fois. Étendre l'une sans l'autre
+// aurait donné des horaires de nuit à la création, et pas au report.
+// ═══════════════════════════════════════════════════════════════════════════
+function optionsHoraires(heureChoisie) {
+  var MOMENTS = [
+    { nom: 'Nuit (début)', de: 0,  a: 5  },
+    { nom: 'Tôt le matin', de: 5,  a: 8  },
+    { nom: 'Matinée',      de: 8,  a: 12 },
+    { nom: 'Après-midi',   de: 12, a: 18 },
+    { nom: 'Soirée',       de: 18, a: 22 },
+    { nom: 'Nuit (fin)',   de: 22, a: 24 }
+  ];
+  // 9h00 par défaut : c'est le créneau le plus demandé, et ouvrir le menu sur
+  // « 0h00 » serait déroutant.
+  var defaut = heureChoisie || '9h00';
+  var opts = '';
+  MOMENTS.forEach(function (bloc) {
+    var lignes = '';
+    for (var heure = bloc.de; heure < bloc.a; heure++) {
+      for (var demi = 0; demi < 2; demi++) {
+        var libelle = heure + 'h' + (demi ? '30' : '00');
+        lignes += '<option' + (libelle === defaut ? ' selected' : '') + '>'
+                + libelle + '</option>';
+      }
+    }
+    opts += '<optgroup label="' + bloc.nom + '">' + lignes + '</optgroup>';
+  });
+  return opts;
+}
+
 function blocDateHeure(today){
   var opts='';
-  for(var i=0;i<27;i++){var h=Math.floor(i/2)+7,m=i%2?'30':'00';opts+='<option>'+h+'h'+m+'</option>'}
+  opts = optionsHoraires();
   var libelles=['Heure exacte','\u00b1 30 min','\u00b1 1 heure','Matin\u00e9e','Apr\u00e8s-midi','Toute la journ\u00e9e'];
   var flexBtns=libelles.map(function(l,i){return'<button class="flex-opt'+(i===0?' sel':'')+'" onclick="selFlex(this)">'+l+'</button>'}).join('');
   return '<div class="field-group"><label>\ud83d\udcc5 Date et heure souhait\u00e9es</label>'+
@@ -12327,7 +12691,12 @@ async function updateEstimationMaintenant(){
     const r=await fetch(url,{headers:authHeaders(),signal:controleurEstimation.signal});
     const d=await safeJson(r);
     if(!r.ok){
-      box.innerHTML='<div style="font-size:12px;color:var(--red)">⚠️ Estimation indisponible ('+(d&&d.error?d.error:'code '+r.status)+')</div>';
+      // Le code HTTP n'apprend rien au visiteur, et il arrive AVANT même son
+      // inscription : c'est la première impression qu'il a de l'application.
+      console.error('Estimation indisponible — statut ' + r.status);
+      box.innerHTML='<div style="font-size:12px;color:var(--text-secondary)">'
+        + 'Estimation momentanément indisponible. Vous pouvez continuer :'
+        + ' vous recevrez des devis chiffrés par les professionnels.</div>';
       return;
     }
     if(d.prix_min===null||d.prix_min===undefined){
